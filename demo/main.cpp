@@ -1,9 +1,12 @@
 #include <iostream>
 #include <fstream>
+#include <filesystem>
 #include <sstream>
 #include <string>
 #include <map>
 #include <variant>
+#include <stdexcept>
+#include <memory>
 
 #include "jerry/token.h"
 #include "jerry/lexer.h"
@@ -56,26 +59,53 @@ struct PrintVisitor {
     }
 };
 
-int main(int argc, char** argv) {
-    std::cout << argv[0] << std::endl;
-
-    if(argc != 2) {
-        std::cout << "usage: main <filename>";
-        return 1;
+std::string PrintTokenType(const jerry::TokenType& type) {
+    switch (type)
+    {
+    case jerry::TokenType::STRING:
+        return "STRING";
+    case jerry::TokenType::INTEGER:
+        return "INTEGER";
+    case jerry::TokenType::LIST_START:
+        return "LIST_START";
+    case jerry::TokenType::DICT_START:
+        return "DICT_START";
+    case jerry::TokenType::END:
+        return "END";
+    case jerry::TokenType::END_OF_FILE:
+        return "EOF";
+    default:
+        throw std::runtime_error{"Unknown TokenType"};
     }
+}
 
-    std::ifstream sourceFile{argv[1]};
-    std::stringstream buffer;
-    buffer << sourceFile.rdbuf();
-    std::string source{buffer.str()};
+std::string read_whole_file(std::ifstream& is) {
+    constexpr size_t read_size = 4 * 1024;
+    is.exceptions(std::ios::badbit);
+    
+    std::string result;
+    std::string buf(read_size, '\0');
+
+    while(is.read(&buf[0], read_size)) {
+        result.append(buf, 0, is.gcount());
+    }
+    result.append(buf, 0, is.gcount());
+
+    return result;
+}
+
+void DemoStringSource(char* source_path) {
+    std::ifstream sourceFile{source_path, std::ios::binary};
+    std::string source{read_whole_file(sourceFile)};
 
     std::cout << sourceFile.good() << std::endl;
     std::cout << source << std::endl;
+    std::cout << "bytes: " << source.size() << std::endl << std::endl << std::endl;
 
     jerry::Lexer lexer{source};
 
     while(lexer.next().type != jerry::TokenType::END_OF_FILE) {
-        std::cout << lexer.current().type << ", " << lexer.current().value << std::endl;
+        std::cout << PrintTokenType(lexer.current().type) << ", " << lexer.current().value << std::endl;
     }
 
     std::cout << std::endl;
@@ -85,5 +115,38 @@ int main(int argc, char** argv) {
 
     std::cout << "I hold " << data.index() << std::endl;
     std::visit(PrintVisitor{}, data);
+}
+
+void DemoFileSource(std::filesystem::path path) {
+    jerry::Lexer lexer{path};
+
+    while(lexer.next().type != jerry::TokenType::END_OF_FILE) {
+        std::cout << PrintTokenType(lexer.current().type) << ", " << lexer.current().value << std::endl;
+    }
+
+    std::cout << std::endl;
+
+    jerry::Parser parser{path};
+    jerry::Data data = parser.parse();
+
+    std::cout << "I hold " << data.index() << std::endl;
+    std::visit(PrintVisitor{}, data);
+}
+
+int main(int argc, char** argv) {
+    std::cout << argv[0] << std::endl;
+
+    if(argc != 2) {
+        std::cout << "usage: main <filename>";
+        return 1;
+    }
+
+    std::string path_str{argv[1]};
+    std::filesystem::path path{path_str};
+
+    std::cout << "Path is: " << path.string() << std::endl << std::endl;
+
+    DemoFileSource(path);
+
 
 }

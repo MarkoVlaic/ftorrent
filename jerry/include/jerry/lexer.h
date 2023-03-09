@@ -4,13 +4,20 @@
 #include <string>
 #include <optional>
 #include <string>
+#include <memory>
+#include <filesystem>
 
 #include "token.h"
+#include "is/input_source.h"
+#include "is/string_input_source.h"
+#include "is/file_input_source.h"
 
 namespace jerry {
     class Lexer {
     public:
-        Lexer(std::string source): data{source} {}
+        Lexer(std::string s): source{std::make_unique<is::StringInputSource>(s)} {}
+        Lexer(std::filesystem::path p): source{std::make_unique<is::FileInputSource>(p)} {}
+
         Lexer(const Lexer& other) = delete;
         Lexer& operator=(const Lexer& other) = delete;
         Lexer(Lexer&& other) = delete;
@@ -26,30 +33,15 @@ namespace jerry {
             return current();
         }
 
-        void reset(std::string s) {
-            data = s;
-            cur_token = std::nullopt;
-            index = 0;
-        }
-
     private:
-        std::string data;
+        std::unique_ptr<is::InputSource> source;
         std::optional<Token> cur_token = std::nullopt;
-        long long index = 0;
 
         void extract();
         void extractInteger();
         void extractList();
         void extractDict();
         void extractString();
-
-        void step() {
-            index++;
-        }
-
-        void step(int steps) {
-            index += steps;
-        }
     };
 };
 

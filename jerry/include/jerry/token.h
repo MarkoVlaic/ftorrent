@@ -16,7 +16,7 @@ namespace jerry {
     };
 
     struct Token {
-        Token(TokenType t, std::string v, long long i): type{t}, value{v}, index{i} {};
+        Token(TokenType t, std::string v, uint64_t i): type{t}, value{v}, index{i} {};
         Token(const Token& rhs) = default;
         Token& operator=(const Token& other) = default;
         Token(Token&& other) = default;
@@ -25,7 +25,7 @@ namespace jerry {
         
         TokenType type;
         std::string value;
-        long long index;
+        uint64_t index;
     };
 
 };
