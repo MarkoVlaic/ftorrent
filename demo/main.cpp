@@ -11,6 +11,7 @@
 #include "jerry/token.h"
 #include "jerry/lexer.h"
 #include "jerry/parser.h"
+#include "jerry/jerry.h"
 
 struct PrintVisitor {
     int indentation = 0;
@@ -146,7 +147,16 @@ int main(int argc, char** argv) {
 
     std::cout << "Path is: " << path.string() << std::endl << std::endl;
 
-    DemoFileSource(path);
+    /*jerry::Data decoded = jerry::bdecode(path);
 
+    std::cout << "back to decode:" << std::endl;
+    std::string encoded = jerry::bencode(decoded);
+    std::cout.write(encoded.c_str(), encoded.size());*/
 
+    //DemoFileSource(path);
+
+    jerry::Data decoded = jerry::bdecode(path);
+    std::visit(PrintVisitor{}, decoded);
+
+    // std::cout << encoded;
 }

@@ -81,6 +81,8 @@ namespace jerry {
         long long start = source->getIndex();
         std::optional<char> cur = source->get();
 
+        std::cout << "Start string at " << start << std::endl;
+
         while(cur.has_value() && cur.value() != ':') {
             if(!isdigit(cur.value())) {
                 std::string error{"Expected a number found: "};
@@ -108,9 +110,10 @@ namespace jerry {
             throw JerryException{error, start};
         }
 
-        std::cout << "I got substr " << opt_value.value() << std::endl;
+        //std::cout << "I got substr " << opt_value.value() << " with len " << opt_value.value().size() <<std::endl;
 
         source->step(len);
+        std::cout << "end str at " << source->getIndex() << std::endl;
         cur_token = Token{TokenType::STRING, opt_value.value(), start};
     }
 };

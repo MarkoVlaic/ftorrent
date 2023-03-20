@@ -33,9 +33,9 @@ namespace is {
             throw JerryException{"error while reading file", index};
 
         buf.get()[n] = '\0';
-        std::cout << "read " << buf.get() << std::endl;
+        std::cout << "read " << buf.get() << " read len " << input.gcount() << std::endl;
 
-        input.seekg(index);
+        input.seekg(-n, input.cur);
 
         return std::string{buf.get()};
     }
