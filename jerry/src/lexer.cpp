@@ -1,38 +1,39 @@
 #include <ctype.h>
 #include <string>
+#include <iostream>
 
 #include "jerry/lexer.h"
 #include "jerry/jerry_exception.h"
 
 namespace jerry {
     void Lexer::extract() {
-        if(index >= data.size()) {
-            cur_token = Token{TokenType::END_OF_FILE, "", index};
+        if(!source->get().has_value()) {
+            cur_token = Token{TokenType::END_OF_FILE, "", source->getIndex()};
             return;
         }
 
-        char cur = data[index];
-
+        char cur = source->get().value();
+        std::cout << "lex cur " << cur << std::endl;
         if(cur == 'i') {
             extractInteger();
             return;
         }
 
         if(cur == 'l') {
-            cur_token = Token{TokenType::LIST_START, "l", index};
-            step();
+            cur_token = Token{TokenType::LIST_START, "l", source->getIndex()};
+            source->step();
             return;
         }
 
         if(cur == 'd') {
-            cur_token = Token{TokenType::DICT_START, "d", index};
-            step();
+            cur_token = Token{TokenType::DICT_START, "d", source->getIndex()};
+            source->step();
             return;
         }
 
         if(cur == 'e') {
-            cur_token = Token{TokenType::END, "e", index};
-            step();
+            cur_token = Token{TokenType::END, "e", source->getIndex()};
+            source->step();
             return;
         }
 
@@ -42,55 +43,77 @@ namespace jerry {
         }
 
         std::string error{"Unexpected character "};
-        error += data[index];
-        throw JerryException{error, index};
+        error += source->get().value();
+        throw JerryException{error, source->getIndex()};
     }
 
     void Lexer::extractInteger() {
-        step();
+        source->step();
 
-        if(index >= data.size())
-            throw JerryException{"Expected 'e' found EOF", index};
+        if(!source->get().has_value())
+            throw JerryException{"Expected 'e' found EOF", source->getIndex()};
 
-        long long start = index;
+        std::string value;
+        uint64_t start = source->getIndex();
+        std::optional<char> cur = source->get();
 
-        while(index < data.size() && data[index] != 'e') {
-            if(!isdigit(data[index]) && data[index] != '-') {
+        while(cur.has_value() && cur.value() != 'e') {
+            if(!isdigit(cur.value()) && cur.value() != '-') {
                 std::string error{"Expected a number, found: "};
-                error += data[index];
-                throw JerryException{error, index};
+                error += cur.value();
+                throw JerryException{error, source->getIndex()};
             }
-            step();
+
+            value += source->get().value();
+            source->step();
+            cur = source->get();
         }
 
-        if(index >= data.size())
-            throw JerryException("Expected 'e' found EOF", index);
+        if(!source->get().has_value())
+            throw JerryException("Expected 'e' found EOF", source->getIndex());
 
-        std::string value = data.substr(start, index - start);
         cur_token = Token{TokenType::INTEGER, value, start};
-
-        step();
+        source->step();
     }
 
     void Lexer::extractString() {
-        long long start = index;
-        while(index < data.size() && data[index] != ':') {
-            if(!isdigit(data[index])) {
+        std::string len_str;
+        long long start = source->getIndex();
+        std::optional<char> cur = source->get();
+
+        std::cout << "Start string at " << start << std::endl;
+
+        while(cur.has_value() && cur.value() != ':') {
+            if(!isdigit(cur.value())) {
                 std::string error{"Expected a number found: "};
-                error += data[index];
-                throw JerryException{error, index};
+                error += cur.value();
+                throw JerryException{error, source->getIndex()};
             }
 
-            step();
+            len_str += cur.value();
+            source->step();
+            cur = source->get();
         }
 
-        if(index >= data.size())
-            throw JerryException{"Expected ':' found EOF", index};
+        if(!cur.has_value())
+            throw JerryException{"Expected ':' found EOF", source->getIndex()};
         
-        long long len = std::stoll(data.substr(start, index - start));
-        std::string value = data.substr(index + 1, len);
-        step(len + 1);
-        
-        cur_token = Token{TokenType::STRING, value, start};
+        long long len = std::stoll(len_str);
+
+        source->step();
+        std::optional<std::string> opt_value = source->get(len);
+
+        if(!opt_value.has_value()) {
+            std::string error{"string length "};
+            error += len_str;
+            error += " reaches beyod the end of file";
+            throw JerryException{error, start};
+        }
+
+        //std::cout << "I got substr " << opt_value.value() << " with len " << opt_value.value().size() <<std::endl;
+
+        source->step(len);
+        std::cout << "end str at " << source->getIndex() << std::endl;
+        cur_token = Token{TokenType::STRING, opt_value.value(), start};
     }
 };
