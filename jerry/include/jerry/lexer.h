@@ -3,6 +3,7 @@
 
 #include <string>
 #include <optional>
+#include <utility>
 #include <string>
 
 #include "token.h"
@@ -10,7 +11,7 @@
 namespace jerry {
     class Lexer {
     public:
-        Lexer(std::string source): data{source} {}
+        Lexer(std::string source): data{std::move(source)} {}
         Lexer(const Lexer& other) = delete;
         Lexer& operator=(const Lexer& other) = delete;
         Lexer(Lexer&& other) = delete;
@@ -39,8 +40,6 @@ namespace jerry {
 
         void extract();
         void extractInteger();
-        void extractList();
-        void extractDict();
         void extractString();
 
         void step() {
