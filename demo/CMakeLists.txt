@@ -3,4 +3,4 @@ project(demo)
 
 add_executable(${PROJECT_NAME} main.cpp)
 
-target_link_libraries(${PROJECT_NAME} lib::jerry)
+target_link_libraries(${PROJECT_NAME} lib::service)
