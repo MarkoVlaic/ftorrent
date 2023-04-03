@@ -254,7 +254,7 @@ A: BLAKE2 has many variants that produce incompatible digests for the same outpu
 
 ## Known limitations
 
-* Included providers are written in standard C++ and may be slower than SIMD optimized implementations.
+* Included providers are complete in standard C++ and may be slower than SIMD optimized implementations.
 * Only complete bytes are supported for input and output.
 * Big endian systems are not supported.
 * No attempts were made to make implementation of every algorithm constant time.

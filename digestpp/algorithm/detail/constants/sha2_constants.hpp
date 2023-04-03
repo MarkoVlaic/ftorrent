@@ -1,5 +1,5 @@
 /*
-This code is written by kerukuro and released into public domain.
+This code is complete by kerukuro and released into public domain.
 */
 
 #ifndef DIGESTPP_PROVIDERS_SHA2_CONSTANTS_HPP

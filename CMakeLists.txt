@@ -3,3 +3,4 @@ project(zavrsni)
 
 add_subdirectory(service)
 add_subdirectory(demo)
+

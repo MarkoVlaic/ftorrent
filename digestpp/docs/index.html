@@ -175,7 +175,7 @@ $(function() {
 <p>A: BLAKE2 has many variants that produce incompatible digests for the same output sizes. We support different variants via different typedef. For the 512-bit version, <code>blake2b</code> is the oldest algorithm which can produce digests of any size up to 512 bits. <code>blake2xb</code> can be used to produce larger digests but requires the output size to be known in advance; it can't be merged with <code>blake2b</code> because their output are different for the same digest sizes. <code>blake2xb_xof</code> can be used in XOF mode when the output size is not known in advance. Then there is a 256-bit version <code>blake2s</code> which supports all this variants as well. Internally all BLAKE2 variants are implemented using one template class.</p>
 <h2>Known limitations</h2>
 <ul>
-<li>Included providers are written in standard C++ and may be slower than SIMD optimized implementations.</li>
+<li>Included providers are complete in standard C++ and may be slower than SIMD optimized implementations.</li>
 <li>Only complete bytes are supported for input and output.</li>
 <li>Big endian systems are not supported.</li>
 <li>No attempts were made to make implementation of every algorithm constant time. </li>

@@ -2,3 +2,7 @@ cmake-build-debug
 build
 .idea
 .vscode
+*.kdev4
+.cproject
+.project
+.settings
