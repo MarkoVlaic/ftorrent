@@ -13,7 +13,7 @@ else()
     message(FATAL_ERROR "Cannot find boost")
 endif()
 
-add_library(${PROJECT_NAME} src/service.cpp include/service/bencode.h src/manager.cpp src/sha1.cpp src/metainfo.cpp src/torrent.cpp include/service/exception.h src/udp_tracker.cpp include/service/tracker/tracker.h)
+add_library(${PROJECT_NAME} src/service.cpp include/service/bencode.h src/serialization.cpp src/manager.cpp src/sha1.cpp src/metainfo.cpp src/torrent.cpp include/service/exception.h src/udp_tracker.cpp include/service/tracker/tracker.h src/util.cpp)
 add_library(lib::service ALIAS ${PROJECT_NAME})
 
 target_include_directories(${PROJECT_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR}/../digestpp/)

@@ -6,6 +6,7 @@
 #include <string>
 #include <array>
 #include <iostream>
+#include <memory>
 
 #include "service/metainfo.h"
 #include "service/torrent.h"
@@ -21,12 +22,12 @@ namespace ftorrent {
         active_torrent{metainfo, outfile_path, io_context},
         num_threads{nthreads}, peer_id{generatePeerId()},
         port{ 6881 } /* TODO: assign available port */{
-            std::cout << "make tracker\n";
-            ftorrent::tracker::UdpTracker t{io_context, "0.0.0.0", "8000", metainfo.info_hash, peer_id};
-            t.run();
+            initTracker(metainfo.announce);
         }
 
         void run();
+    private:
+        void initTracker(const std::string& announce_url);
     private:
         boost::asio::io_context io_context;
         boost::thread_group thread_pool;
@@ -38,6 +39,8 @@ namespace ftorrent {
 
         types::PeerId peer_id;
         uint16_t port;
+
+        std::unique_ptr<tracker::Tracker> tracker;
 
         types::PeerId generatePeerId();
     };

@@ -3,6 +3,8 @@
 
 #include <vector>
 #include <algorithm>
+#include <array>
+#include <string>
 
 #include "exception.h"
 
@@ -38,28 +40,29 @@ namespace serialization {
         std::size_t offset = 0;
     };
 
-    template<typename Type>
-    void serialize(Type, Serializer&);
+    struct Serializable {
+        virtual void serialize(Serializer&) = 0;
+    };
 
-    template<>
-    void serialize<int32_t>(int32_t num, Serializer& serializer) {
-        serializer.reserve(4);
-
-        for(int i=0;i<4;i++) {
-            uint8_t byte = (num >> (3-i)*8) & 0xFF;
-            serializer.write(byte);
-        }
+    template<typename SerializablePtr>
+    void serialize(SerializablePtr p, Serializer& s) {
+        p->serialize(s);
     }
 
     template<>
-    void serialize<int64_t>(int64_t num, Serializer& serializer) {
-        serializer.reserve(8);
+    void serialize(uint16_t num, Serializer& serializer);
 
-        for(int i=0;i<8;i++) {
-            uint8_t byte = (num >> (7-i)*8) & 0xFF;
-            serializer.write(byte);
-        }
-    }
+    template<>
+    void serialize(uint32_t num, Serializer& serializer);
+
+    template<>
+    void serialize(std::array<uint32_t, 2> arr, Serializer& serializer);
+
+    template<>
+    void serialize(std::array<uint8_t, 20> arr, Serializer& serializer);
+
+    template<>
+    void serialize(uint64_t num, Serializer& serializer);
 
     class Deserializer {
     public:
@@ -71,44 +74,62 @@ namespace serialization {
         Deserializer& operator=(Deserializer&&) = delete;
 
         std::vector<uint8_t> get(uint32_t bytes) {
-            if(offset + bytes >= data.size()) {
+            if(offset + bytes > data.size()) {
                 throw ftorrent::Exception{"Deserializer: read out of bounds"};
             }
 
-            std::vector<uint8_t> result;
-            result.resize(bytes);
-
-            std::copy(data.begin() + offset, data.begin() + offset + bytes, result.begin());
+            uint32_t start_offset = offset;
             offset += bytes;
-            return result;
+            return std::vector(data.begin() + start_offset, data.begin() + start_offset + bytes);
         }
+
+        uint8_t get() {
+            if(empty()) {
+                throw ftorrent::Exception{"Deserializer: read out of bounds"};
+            }
+
+            offset += 1;
+            return data[offset - 1];
+        }
+
+        void reset() {
+            offset = 0;
+        }
+
+        void reset(const std::vector<uint8_t>& d) {
+            data = d;
+        }
+
+        bool empty() const {
+            return offset >= data.size();
+        }
+
+        uint32_t left() const {
+            return data.size() - offset;
+        }
+
     private:
         std::vector<uint8_t> data;
-        int offset = 0;
+        uint32_t offset = 0;
     };
 
     template<typename Type>
     void deserialize(Type&, Deserializer&);
 
     template<>
-    void deserialize<int32_t>(int32_t& num, Deserializer& deserializer) {
-        std::vector<uint8_t> bytes = deserializer.get(4);
-        num = 0;
-
-        for(int i=0;i<4;i++) {
-            num |= ((int)bytes[i]) << (3 - i);
-        }
-    }
+    void deserialize(uint16_t& num, Deserializer& deserializer);
 
     template<>
-    void deserialize<int64_t>(int64_t& num, Deserializer& deserializer) {
-        std::vector<uint8_t> bytes = deserializer.get(8);
-        num = 0;
+    void deserialize(uint32_t& num, Deserializer& deserializer);
 
-        for(int i=0;i<8;i++) {
-            num |= ((int)bytes[i]) << (7 - i);
-        }
-    }
+    template<>
+    void deserialize(uint64_t& num, Deserializer& deserializer);
+
+    template<>
+    void deserialize(std::array<uint32_t, 2>& arr, Deserializer& deserializer);
+
+    template<>
+    void deserialize(std::string& str, Deserializer& deserializer);
 
 }; // serialization
 }; // ftorrent

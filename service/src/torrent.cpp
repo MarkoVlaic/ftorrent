@@ -83,8 +83,9 @@ namespace torrent {
 
         boost::asio::async_read_at(
             out_file, offset, boost::asio::buffer(piece.validation_buf),
-            boost::asio::bind_executor(strand, [piece_index, &piece](boost::system::error_code, std::size_t r) {
+            boost::asio::bind_executor(strand, [this, piece_index, &piece](boost::system::error_code, std::size_t r) {
                 if(sha1::hashValid(piece.validation_buf, piece.hash)) {
+                    this->downloaded += piece.size;
                     std::cout << "Piece validation SUCCESS " << piece_index << std::endl;
                     // TODO: send have notification
                 } else {

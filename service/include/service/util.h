@@ -1,5 +1,5 @@
-#ifndef FTORRENT_RANDOM_BYTE_GENERATOR_H
-#define FTORRENT_RANDOM_BYTE_GENERATOR_H
+#ifndef FTORRENT_UTIL_H
+#define FTORRENT_UTIL_H
 
 #include <random>
 #include <algorithm>
@@ -43,6 +43,9 @@ namespace util {
 
         std::independent_bits_engine<std::default_random_engine, CHAR_BIT, unsigned char> rbe;
     };
+
+    std::array<uint32_t, 2> splitUint64t(uint64_t num);
+
 }; // util
 }; // ftorrent
 

@@ -1,4 +1,5 @@
 #include <boost/asio.hpp>
+#include <boost/bind/bind.hpp>
 #include <boost/endian/conversion.hpp>
 #include <vector>
 
@@ -6,24 +7,26 @@
 #include "service/tracker/udp_tracker.h"
 #include "service/serialization.h"
 #include "service/types.h"
-#include "service/random_byte_generator.h"
+#include "service/util.h"
+
+namespace boost {
+    namespace endian {
+        template<>
+        std::array<uint32_t, 2> native_to_big(std::array<uint32_t, 2> arr) noexcept {
+            return { native_to_big(arr[0]), native_to_big(arr[1]) };
+        }
+
+        template<>
+        std::array<uint32_t, 2> big_to_native(std::array<uint32_t, 2> arr) noexcept {
+            return { big_to_native(arr[0]), big_to_native(arr[1]) };
+        }
+    }; // endian
+}; // boost
 
 namespace ftorrent {
 namespace serialization {
     template<>
-    void serialize<tracker::udp::Request>(tracker::udp::Request req, Serializer& serializer) {
-        serialize(boost::endian::native_to_big(req.connection_id), serializer);
-        serialize(boost::endian::native_to_big(req.action), serializer);
-        serialize(boost::endian::native_to_big(req.transaction_id), serializer);
-    }
-
-    template<>
-    void serialize<tracker::udp::ConnectionRequest>(tracker::udp::ConnectionRequest req, Serializer& serializer) {
-        serialize(static_cast<tracker::udp::Request>(req), serializer);
-    }
-
-    template<>
-    void deserialize<tracker::udp::Response>(tracker::udp::Response& res, Deserializer& deserializer) {
+    void deserialize(tracker::udp::Response& res, Deserializer& deserializer) {
         deserialize(res.action, deserializer);
         deserialize(res.transaction_id, deserializer);
 
@@ -32,102 +35,298 @@ namespace serialization {
     }
 
     template<>
-    void deserialize<tracker::udp::ConnectionResponse>(tracker::udp::ConnectionResponse& res, Deserializer& deserializer) {
+    void deserialize(tracker::udp::ConnectionResponse& res, Deserializer& deserializer) {
         deserialize(static_cast<tracker::udp::Response&>(res), deserializer);
 
         deserialize(res.connection_id, deserializer);
+        std::cout << std::hex << "raw conn id " << res.connection_id << "\n";
         res.connection_id = boost::endian::big_to_native(res.connection_id);
     }
-};
+
+    template<>
+    void deserialize(tracker::udp::AnnounceResponse& res, Deserializer& deserializer) {
+        deserialize(static_cast<tracker::udp::Response&>(res), deserializer);
+
+        deserialize(res.interval, deserializer);
+        deserialize(res.leechers, deserializer);
+        deserialize(res.seeders, deserializer);
+
+        res.interval = boost::endian::big_to_native(res.interval);
+        res.leechers = boost::endian::big_to_native(res.leechers);
+        res.seeders = boost::endian::big_to_native(res.seeders);
+
+        res.peers.reserve(res.leechers + res.seeders);
+        for(int i=0;i<res.leechers + res.seeders;i++) {
+            uint32_t ip;
+            uint16_t port;
+
+            deserialize(ip, deserializer);
+            deserialize(port, deserializer);
+
+            ip = boost::endian::big_to_native(ip);
+            port = boost::endian::big_to_native(port);
+
+            res.peers.emplace_back(ip, port);
+        }
+    }
+
+    template<>
+    void deserialize(tracker::udp::ErrorResponse& res, Deserializer& deserializer) {
+        deserialize(static_cast<tracker::udp::Response&>(res), deserializer);
+        deserialize(res.message, deserializer);
+    }
+
+}; // serialization
 
 namespace tracker {
-    UdpTracker::UdpTracker(boost::asio::io_context& ioc, std::string hostname, std::string port, const sha1::Hash& h, const ftorrent::types::PeerId& pid):
-    Tracker{h, pid}, io_context{ioc}, socket{ioc} {
-        std::cout << "UdpTracker::UdpTracker()\n";
+    namespace udp {
+        void Request::serialize(ftorrent::serialization::Serializer& serializer) {
+            std::cout << "serialize base\n";
+            ftorrent::serialization::serialize(boost::endian::native_to_big(connection_id), serializer);
+            ftorrent::serialization::serialize(boost::endian::native_to_big(action), serializer);
+            ftorrent::serialization::serialize(boost::endian::native_to_big(transaction_id), serializer);
+        }
+
+        void AnnounceRequest::serialize(ftorrent::serialization::Serializer& serializer) {
+            std::cout << "serialize announce\n";
+            Request::serialize(serializer);
+            ftorrent::serialization::serialize(info_hash, serializer);
+            ftorrent::serialization::serialize(peer_id, serializer);
+            ftorrent::serialization::serialize(boost::endian::native_to_big(downloaded), serializer);
+            ftorrent::serialization::serialize(boost::endian::native_to_big(left), serializer);
+            ftorrent::serialization::serialize(boost::endian::native_to_big(uploaded), serializer);
+            ftorrent::serialization::serialize(boost::endian::native_to_big(static_cast<uint32_t>(event)), serializer);
+            ftorrent::serialization::serialize(boost::endian::native_to_big(ip_addr), serializer);
+            ftorrent::serialization::serialize(boost::endian::native_to_big(key), serializer);
+            ftorrent::serialization::serialize(boost::endian::native_to_big(num_want), serializer);
+            ftorrent::serialization::serialize(boost::endian::native_to_big(port), serializer);
+        }
+
+        void RetryTimer::start(std::function<void()> handler) {
+            stopped = false;
+            timer.expires_after(getExpire());
+            timer.async_wait(boost::bind(&RetryTimer::waitHandler, this, boost::asio::placeholders::error, handler));
+        }
+
+        void RetryTimer::stop() {
+            std::cout << "stop\n";
+            timer.cancel();
+            stopped = true;
+            retransmission_index = 0;
+        }
+
+        void RetryTimer::waitHandler(const boost::system::error_code& e, std::function<void()> handler) {
+            std::cout << "timer\n";
+            if(e) {
+                if(e == boost::asio::error::operation_aborted) {
+                    return;
+                }
+                return;
+            }
+
+            if(stopped) {
+                return;
+            }
+
+            handler();
+            increment();
+
+            timer.expires_after(getExpire());
+            timer.async_wait(boost::bind(&RetryTimer::waitHandler, this, boost::asio::placeholders::error, handler));
+        }
+    }; // udp
+
+    UdpTracker::UdpTracker(boost::asio::io_context& ioc, std::string hostname, std::string port, const sha1::Hash& h, const ftorrent::types::PeerId& pid, uint16_t listen_port):
+    Tracker{h, pid, listen_port}, strand{boost::asio::make_strand(ioc)},
+    socket{ioc}, retry_timer{strand},
+    announce_timer{strand}, connect_timer{strand} {
         socket.open(boost::asio::ip::udp::v4());
 
-        boost::asio::ip::udp::resolver resolver{io_context};
+        boost::asio::ip::udp::resolver resolver{ioc};
         auto endpoints = resolver.resolve(boost::asio::ip::udp::v4(), hostname, port);
         if(endpoints.empty()) {
             throw ftorrent::Exception{"Cannot resolve tracker"};
         }
         server_endpoint = *endpoints.begin();
-
-        udp::Request req = udp::ConnectionRequest{};
-        req.action = 0x12345678;
-        req.transaction_id = 0x87654321;
-
-        /*auto serialized = serialization::serialize(req.connection_id);
-        std::cout << "serialized: " << std::hex;
-        for(auto byte: serialized) {
-            std::cout << (int)byte << " ";
-        }*/
-
-        std::cout << "befire serialize\n";
-        serialization::Serializer ser;
-        serialization::serialize(req, ser);
-        auto serialized = ser.data();
-        std::cout << "serialized: " << std::hex;
-        for(auto byte: serialized) {
-            std::cout << (int)byte << " ";
-        }
-        std::cout << std::endl;
     }
 
     void UdpTracker::run() {
-        udp::ConnectionRequest req;
-        sendRequest(req);
+        auto conn_req = std::make_shared<udp::ConnectRequest>();
+        req_queue.insert(conn_req);
+
+        auto announce_req = std::make_shared<udp::AnnounceRequest>();
+        announce_req->action = 1;
+        announce_req->info_hash = info_hash;
+        announce_req->peer_id = peer_id;
+        announce_req->downloaded = downloaded;
+        announce_req->left = left;
+        announce_req->uploaded = uploaded;
+        announce_req->event = udp::AnnounceRequest::Event::STARTED;
+        announce_req->ip_addr = 0;
+        announce_req->key = key;
+        announce_req->num_want = 50;
+        announce_req->port = listen_port;
+        req_queue.insert(announce_req);
+
+        sendRequest();
     }
 
-    template<typename RequestType>
-    void UdpTracker::sendRequest(RequestType& req) {
-        serialization::Deserializer tid_deser{ftorrent::util::RandomByteGenerator::getInstance().generate(4)};
-        int32_t transaction_id;
-        //deserialize(transaction_id, tid_deser);
-        //req.transaction_id = transaction_id;
-        req.transaction_id = 0x123;
+    void UdpTracker::sendRequest() {
+        cur_req = req_queue.top();
+        cur_req->connection_id = connection_id;
 
         serialization::Serializer serializer;
-        serialization::serialize(req, serializer);
+        serialization::serialize(cur_req, serializer);
         req_buf = serializer.data();
 
-        /*socket.async_send_to(boost::asio::buffer(req_buf), server_endpoint, [this](boost::system::error_code, long unsigned int){
+        std::cout << "req bytes: " << std::hex;
+        for(uint8_t byte : req_buf) {
+            std::cout << (int) byte << " ";
+        }
+        std::cout << std::endl;
+
+        socket.async_send_to(
+            boost::asio::buffer(req_buf), server_endpoint,
+            boost::asio::bind_executor(strand, [this](boost::system::error_code, long unsigned int){
             std::cout << "req sent" << std::endl;
-            this->getResponse();
-        });*/
 
-        socket.send_to(boost::asio::buffer(req_buf), server_endpoint);
-        boost::asio::ip::udp::endpoint sender_endpoint;
-        std::array<uint8_t, 1020> arr_buf;
-        socket.receive_from(boost::asio::buffer(arr_buf), sender_endpoint);
+            if(!this->req_sent) {
+                this->getResponse();
+                this->req_sent = true;
+                retry_timer.start(boost::bind(&UdpTracker::sendRequest, this));
+            }
+        }));
+    }
 
-        std::cout << "recieve done";
+    void UdpTracker::makeConnectRequest() {
+        connection_id = MAGIC_CONNECTION_ID;
+        auto conn_req = std::make_shared<udp::ConnectRequest>();
+        req_queue.insert(conn_req);
+    }
+
+    void UdpTracker::makeAnnounceRequest() {
+        auto announce_req = std::make_shared<udp::AnnounceRequest>();
+        announce_req->action = 1;
+        announce_req->info_hash = info_hash;
+        announce_req->peer_id = peer_id;
+        announce_req->downloaded = downloaded;
+        announce_req->left = left;
+        announce_req->uploaded = uploaded;
+        announce_req->event = cur_announce_event;
+        announce_req->ip_addr = 0;
+        announce_req->key = key;
+        announce_req->num_want = 50;
+        announce_req->port = listen_port;
+        req_queue.insert(announce_req);
     }
 
     void UdpTracker::getResponse() {
-        //res_buf = std::vector<uint8_t>{};
+        // res_buf = std::vector<uint8_t>{};
         res_buf.clear();
-        std::cout << "open " << socket.is_open();
-        //res_buf.resize(1020); /*TODO: Change magic to something more smart*/
+        res_buf.resize(1020); /*TODO: Change magic to something more smart*/
         std::array<uint8_t, 1020> arr_buf;
-        /*socket.async_receive_from(boost::asio::buffer(arr_buf), server_endpoint, [this](boost::system::error_code, long unsigned int) {
-            std::cout << "response" << std::endl;
-            /*serialization::Deserializer deser{this->res_buf};
-            udp::Response res;
-            deserialize(res, deser);
+        boost::asio::ip::udp::endpoint sender_endpoint;
 
-            std::cout << "recieved bytes: " << std::hex;
-            for(auto byte : this->res_buf) {
-                std::cout << (int) byte << " ";
+        socket.async_receive_from(boost::asio::buffer(res_buf), sender_endpoint, [this](boost::system::error_code, long unsigned int) {
+            std::cout << "response" << std::endl;
+            retry_timer.stop();
+            this->handleResponse();
+
+            req_sent = false;
+            cur_req = nullptr;
+
+            if(!req_queue.empty()) {
+                sendRequest();
+            }
+        });
+    }
+
+    void UdpTracker::handleResponse() {
+        std::cout << "handler\n";
+        serialization::Deserializer deserializer{res_buf};
+        udp::Response response_header;
+        deserialize(response_header, deserializer);
+        deserializer.reset();
+
+        std::cout << "Response header " << response_header.action << " " << response_header.transaction_id << "\n";
+
+        if(cur_req->transaction_id != response_header.transaction_id) {
+            std::cout << "tid mismatch\n";
+            return;
+        }
+
+        if(response_header.action == 0) {
+            if(res_buf.size() < 16) {
+                std::cerr << "Malformed tracker response" << std::endl;
+                return;
             }
 
-            std::cout << "Response { action: " << res.action << ", transaction_id: " << res.transaction_id << std::endl;
-        });*/
+            std::cout << "deser\n";
+            req_queue.remove(cur_req);
 
-        boost::asio::ip::udp::endpoint sender_endpoint;
-        socket.receive_from(boost::asio::buffer(arr_buf), sender_endpoint);
-        std::cout << "receive done" << std::endl;
+            udp::ConnectionResponse response;
+            deserialize(response, deserializer);
+
+            connection_id = response.connection_id;
+            std::cout << "conn id " << std::hex << connection_id << "\n";
+
+            connect_timer.expires_after(std::chrono::seconds(60));
+            connect_timer.async_wait([this](auto e){
+                if(e) {
+                    return;
+                }
+
+                this->makeConnectRequest();
+                if(!this->req_sent) {
+                    sendRequest();
+                }
+            });
+
+            return;
+        }
+
+        if(response_header.action == 1) {
+            if(res_buf.size() < 20) {
+                std::cerr << "Malformed tracker response" << std::endl;
+                return;
+            }
+
+            req_queue.remove(cur_req);
+
+            udp::AnnounceResponse response;
+            deserialize(response, deserializer);
+
+            announce_interval = response.interval;
+
+            std::cout << "interval " << response.interval << " leechers " << response.leechers << "\n";
+            /* TODO: dispatch new peers */
+            for(auto pd : response.peers) {
+                std::cout << "peer: " << pd.ip << " " << pd.port << std::endl;
+            }
+
+            announce_timer.expires_after(std::chrono::seconds(announce_interval));
+            announce_timer.async_wait([this](auto e){
+                if(e) {
+                    return;
+                }
+
+                this->makeAnnounceRequest();
+                if(!this->req_sent) {
+                    sendRequest();
+                }
+            });
+
+            return;
+        }
+
+        if(response_header.action == 3) {
+            udp::ErrorResponse response;
+            deserialize(response, deserializer);
+
+            std::cerr << "tracker error: " << response.message;
+            req_queue.remove(cur_req);
+        }
     }
-};
+}; // tracker
 
-};
+}; // ftorrent

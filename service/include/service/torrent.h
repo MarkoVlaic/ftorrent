@@ -64,9 +64,11 @@ namespace torrent {
         uint64_t nominal_piece_size;
         std::vector<Piece> pieces;
 
+        uint64_t downloaded = 0;
+        uint64_t uploaded = 0;
+
         boost::asio::random_access_file out_file;
         boost::asio::strand<boost::asio::io_context::executor_type> strand;
-        std::vector<std::vector<uint8_t>> keep_alive;
 
         void validatePiece(uint64_t piece_index);
     };

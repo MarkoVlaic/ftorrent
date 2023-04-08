@@ -27,9 +27,15 @@ namespace ftorrent {
             }
 
             length = std::get<bencode::integer>(info["length"]);
-            sha1::computeHash(bencode::encode(info));
 
-            std::cout << "info hash: ";
+            std::cout << "binfo:\n" << bencode::encode(info) << "\n";
+            std::cout << "binfo length: " << bencode::encode(info).size() << "\n";
+            std::ofstream log{"./log.bin"};
+            log << bencode::encode(info);
+
+            info_hash = sha1::computeHash(bencode::encode(info));
+
+            std::cout << "info hash: " << std::hex;
             for(auto byte : info_hash) {
                 std::cout << "\\x" << (int) byte;
             }

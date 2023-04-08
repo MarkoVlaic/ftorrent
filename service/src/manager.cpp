@@ -3,9 +3,11 @@
 #include <random>
 #include <unistd.h>
 #include <chrono>
+#include <memory>
 
 #include "service/manager.h"
-#include "service/random_byte_generator.h"
+#include "service/util.h"
+#include "service/tracker/udp_tracker.h"
 
 namespace ftorrent {
     void Manager::run() {
@@ -32,5 +34,28 @@ namespace ftorrent {
         generator.generate(result.begin() + 10, result.end());
 
         return result;
+    }
+
+    void Manager::initTracker(const std::string& announce_url) {
+        int proto_separator = announce_url.find("://");
+        std::string protocol = announce_url.substr(0, proto_separator);
+        std::string rest = announce_url.substr(proto_separator + 3);
+
+        if(protocol == "udp") {
+            int serv_separator = rest.find(":");
+            std::string host = rest.substr(0, serv_separator);
+            std::string service = rest.substr(serv_separator + 1);
+
+            std::cout << "host " << host << " service " << service << "\n";
+
+            tracker = std::make_unique<tracker::UdpTracker>(io_context, host, service, metainfo.info_hash, peer_id, 6881);
+            tracker->run();
+
+            return;
+        }
+
+        std::string error = protocol;
+        error += " protocol is not supported";
+        throw ftorrent::Exception{error};
     }
 };
