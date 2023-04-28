@@ -6,6 +6,7 @@
 
 #include "service/sha1.h"
 #include "service/bencode.h"
+#include "service/types.h"
 
 namespace ftorrent {
     struct Metainfo {
@@ -13,9 +14,9 @@ namespace ftorrent {
 
         std::string announce;
         uint64_t piece_length;
-        std::vector<sha1::Hash> pieces;
+        std::vector<types::Hash> pieces;
         uint64_t length;
-        sha1::Hash info_hash;
+        types::Hash info_hash;
     };
 }; // ftorrent
 

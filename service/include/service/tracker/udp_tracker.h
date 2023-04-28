@@ -50,6 +50,9 @@ namespace udp {
     };
 
     struct AnnounceRequest : public Request {
+        AnnounceRequest() {
+            action = 1;
+        }
         ~AnnounceRequest() = default;
 
         virtual void serialize(ftorrent::serialization::Serializer&) override;
@@ -61,7 +64,7 @@ namespace udp {
             STOPPED
         };
 
-        ftorrent::sha1::Hash info_hash;
+        ftorrent::types::Hash info_hash;
         ftorrent::types::PeerId peer_id;
         uint64_t downloaded;
         uint64_t left;
@@ -165,18 +168,24 @@ namespace udp {
 
     class UdpTracker : public Tracker {
     public:
-        UdpTracker(boost::asio::io_context& ioc, std::string hostname, std::string port, const sha1::Hash& h, const ftorrent::types::PeerId& pid, uint16_t listen_port);
+        UdpTracker(boost::asio::io_context& ioc, std::string hostname, std::string port, const types::Hash& h, const ftorrent::types::PeerId& pid, uint16_t listen_port);
 
-        void run() override;
         ~UdpTracker() = default;
+
+    protected:
+        void run() override;
 
     private:
         void sendRequest();
-        void makeConnectRequest();
-        void makeAnnounceRequest();
+        std::shared_ptr<udp::ConnectRequest> makeConnectRequest();
+        std::shared_ptr<udp::AnnounceRequest> makeAnnounceRequest();
 
         void getResponse();
         void handleResponse();
+
+        template<typename ReqType>
+        void scheduleRequest(boost::asio::steady_timer& timer, std::function<std::shared_ptr<ReqType>()> req_factory, uint32_t seconds);
+
     private:
         boost::asio::strand<boost::asio::io_context::executor_type> strand;
         boost::asio::ip::udp::socket socket;

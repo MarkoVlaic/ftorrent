@@ -8,6 +8,8 @@
 #include "service/serialization.h"
 #include "service/types.h"
 #include "service/util.h"
+#include "service/events/events.h"
+#include "service/events/torrent_events.h"
 
 namespace boost {
     namespace endian {
@@ -136,7 +138,7 @@ namespace tracker {
         }
     }; // udp
 
-    UdpTracker::UdpTracker(boost::asio::io_context& ioc, std::string hostname, std::string port, const sha1::Hash& h, const ftorrent::types::PeerId& pid, uint16_t listen_port):
+    UdpTracker::UdpTracker(boost::asio::io_context& ioc, std::string hostname, std::string port, const ftorrent::types::Hash& h, const ftorrent::types::PeerId& pid, uint16_t listen_port):
     Tracker{h, pid, listen_port}, strand{boost::asio::make_strand(ioc)},
     socket{ioc}, retry_timer{strand},
     announce_timer{strand}, connect_timer{strand} {
@@ -148,24 +150,17 @@ namespace tracker {
             throw ftorrent::Exception{"Cannot resolve tracker"};
         }
         server_endpoint = *endpoints.begin();
+
+
     }
 
     void UdpTracker::run() {
-        auto conn_req = std::make_shared<udp::ConnectRequest>();
+        std::cout << "run\n";
+
+        auto conn_req = makeConnectRequest();
         req_queue.insert(conn_req);
 
-        auto announce_req = std::make_shared<udp::AnnounceRequest>();
-        announce_req->action = 1;
-        announce_req->info_hash = info_hash;
-        announce_req->peer_id = peer_id;
-        announce_req->downloaded = downloaded;
-        announce_req->left = left;
-        announce_req->uploaded = uploaded;
-        announce_req->event = udp::AnnounceRequest::Event::STARTED;
-        announce_req->ip_addr = 0;
-        announce_req->key = key;
-        announce_req->num_want = 50;
-        announce_req->port = listen_port;
+        auto announce_req = makeAnnounceRequest();
         req_queue.insert(announce_req);
 
         sendRequest();
@@ -198,13 +193,12 @@ namespace tracker {
         }));
     }
 
-    void UdpTracker::makeConnectRequest() {
+    std::shared_ptr<udp::ConnectRequest> UdpTracker::makeConnectRequest() {
         connection_id = MAGIC_CONNECTION_ID;
-        auto conn_req = std::make_shared<udp::ConnectRequest>();
-        req_queue.insert(conn_req);
+        return std::make_shared<udp::ConnectRequest>();
     }
 
-    void UdpTracker::makeAnnounceRequest() {
+    std::shared_ptr<udp::AnnounceRequest> UdpTracker::makeAnnounceRequest() {
         auto announce_req = std::make_shared<udp::AnnounceRequest>();
         announce_req->action = 1;
         announce_req->info_hash = info_hash;
@@ -217,7 +211,8 @@ namespace tracker {
         announce_req->key = key;
         announce_req->num_want = 50;
         announce_req->port = listen_port;
-        req_queue.insert(announce_req);
+
+        return announce_req;
     }
 
     void UdpTracker::getResponse() {
@@ -270,17 +265,11 @@ namespace tracker {
             connection_id = response.connection_id;
             std::cout << "conn id " << std::hex << connection_id << "\n";
 
-            connect_timer.expires_after(std::chrono::seconds(60));
-            connect_timer.async_wait([this](auto e){
-                if(e) {
-                    return;
-                }
-
-                this->makeConnectRequest();
-                if(!this->req_sent) {
-                    sendRequest();
-                }
-            });
+            scheduleRequest<udp::ConnectRequest>(
+                connect_timer,
+                std::bind(&UdpTracker::makeConnectRequest, this),
+                60
+            );
 
             return;
         }
@@ -304,18 +293,11 @@ namespace tracker {
                 std::cout << "peer: " << pd.ip << " " << pd.port << std::endl;
             }
 
-            announce_timer.expires_after(std::chrono::seconds(announce_interval));
-            announce_timer.async_wait([this](auto e){
-                if(e) {
-                    return;
-                }
-
-                this->makeAnnounceRequest();
-                if(!this->req_sent) {
-                    sendRequest();
-                }
-            });
-
+            scheduleRequest<udp::AnnounceRequest>(
+                announce_timer,
+                std::bind(&UdpTracker::makeAnnounceRequest, this),
+                announce_interval
+            );
             return;
         }
 
@@ -325,7 +307,34 @@ namespace tracker {
 
             std::cerr << "tracker error: " << response.message;
             req_queue.remove(cur_req);
+
+            scheduleRequest<udp::AnnounceRequest>(
+                announce_timer,
+                std::bind(&UdpTracker::makeAnnounceRequest, this),
+                announce_interval
+            );
+
+            scheduleRequest<udp::ConnectRequest>(
+                connect_timer,
+                std::bind(&UdpTracker::makeConnectRequest, this),
+                60
+            );
         }
+    }
+
+    template<typename ReqType>
+    void UdpTracker::scheduleRequest(boost::asio::steady_timer& timer, std::function<std::shared_ptr<ReqType>()> req_factory, uint32_t seconds) {
+        timer.expires_after(std::chrono::seconds(seconds));
+        timer.async_wait([this, req_factory](auto e){
+            if(e) {
+                return;
+            }
+
+            this->req_queue.insert(req_factory());
+            if(!this->req_sent) {
+                sendRequest();
+            }
+        });
     }
 }; // tracker
 

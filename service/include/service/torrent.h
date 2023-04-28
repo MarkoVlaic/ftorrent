@@ -6,8 +6,11 @@
 #include <vector>
 #include <boost/asio.hpp>
 #include <boost/asio/random_access_file.hpp>
+#include <memory>
 
 #include "service/metainfo.h"
+#include "service/events/events.h"
+#include "service/types.h"
 
 namespace ftorrent {
 namespace torrent {
@@ -22,10 +25,10 @@ namespace torrent {
     };
 
     struct Piece {
-        Piece(sha1::Hash h): Piece{h, 0} {}
-        Piece(sha1::Hash h, uint32_t s);
+        Piece(types::Hash h): Piece{h, 0} {}
+        Piece(types::Hash h, uint32_t s);
 
-        sha1::Hash hash;
+        types::Hash hash;
         uint32_t size;
 
         constexpr static uint32_t nominal_block_size = 1 << 14; // 16 kB
@@ -55,10 +58,13 @@ namespace torrent {
         uint32_t complete_blocks = 0;
     };
 
-    class Torrent {
+    class Torrent : public std::enable_shared_from_this<Torrent>, public ftorrent::events::Subscriber {
     public:
         Torrent(const ftorrent::Metainfo& metainfo, const std::string& output_path, boost::asio::io_context& io_context);
+
         void writeBlock(uint64_t piece_index, uint64_t block_offset, const std::vector<uint8_t>& data);
+
+        void processEvent(std::shared_ptr<ftorrent::events::Event>) override {}
     private:
         uint64_t size;
         uint64_t nominal_piece_size;

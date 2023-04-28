@@ -50,6 +50,9 @@ namespace serialization {
     }
 
     template<>
+    void serialize(uint8_t byte, Serializer& serializer);
+
+    template<>
     void serialize(uint16_t num, Serializer& serializer);
 
     template<>
@@ -59,10 +62,22 @@ namespace serialization {
     void serialize(std::array<uint32_t, 2> arr, Serializer& serializer);
 
     template<>
+    void serialize(std::array<uint8_t, 8> arr, Serializer& serializer);
+
+    template<>
     void serialize(std::array<uint8_t, 20> arr, Serializer& serializer);
 
     template<>
     void serialize(uint64_t num, Serializer& serializer);
+
+    template<>
+    void serialize(std::string s, Serializer& serializer);
+
+    template<>
+    void serialize(std::vector<uint8_t> v, Serializer& serializer);
+
+    template<>
+    void serialize(std::vector<bool> v, Serializer& serializer);
 
     class Deserializer {
     public:
@@ -117,6 +132,9 @@ namespace serialization {
     void deserialize(Type&, Deserializer&);
 
     template<>
+    void deserialize(uint8_t& byte, Deserializer& deserializer);
+
+    template<>
     void deserialize(uint16_t& num, Deserializer& deserializer);
 
     template<>
@@ -129,7 +147,16 @@ namespace serialization {
     void deserialize(std::array<uint32_t, 2>& arr, Deserializer& deserializer);
 
     template<>
+    void deserialize(std::array<uint8_t, 8>& arr, Deserializer& deserializer);
+
+    template<>
+    void deserialize(std::array<uint8_t, 20>& arr, Deserializer& deserializer);
+
+    template<>
     void deserialize(std::string& str, Deserializer& deserializer);
+
+    template<>
+    void deserialize(std::vector<uint8_t>& buf, Deserializer& deserializer);
 
 }; // serialization
 }; // ftorrent

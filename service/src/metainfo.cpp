@@ -4,6 +4,7 @@
 
 #include "service/metainfo.h"
 #include "service/sha1.h"
+#include "service/types.h"
 
 namespace ftorrent {
     Metainfo::Metainfo(const std::string& path) {
@@ -21,17 +22,12 @@ namespace ftorrent {
             pieces.reserve(num_pieces);
 
             for(int i=0;i<num_pieces;i++) {
-                sha1::Hash hash;
+                types::Hash hash;
                 pieces_string.copy((char*)hash.data(), 20, i*20);
                 pieces.push_back(hash);
             }
 
             length = std::get<bencode::integer>(info["length"]);
-
-            std::cout << "binfo:\n" << bencode::encode(info) << "\n";
-            std::cout << "binfo length: " << bencode::encode(info).size() << "\n";
-            std::ofstream log{"./log.bin"};
-            log << bencode::encode(info);
 
             info_hash = sha1::computeHash(bencode::encode(info));
 

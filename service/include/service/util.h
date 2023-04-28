@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <functional>
 #include <vector>
+#include <iostream>
 
 namespace ftorrent {
 namespace util {
@@ -45,6 +46,15 @@ namespace util {
     };
 
     std::array<uint32_t, 2> splitUint64t(uint64_t num);
+
+    template<typename BufType>
+    void print_buffer(BufType buffer) {
+        std::cout << std::hex;
+        for(auto byte : buffer) {
+            std::cout << (int) byte << " ";
+        }
+        std::cout << std::endl;
+    }
 
 }; // util
 }; // ftorrent

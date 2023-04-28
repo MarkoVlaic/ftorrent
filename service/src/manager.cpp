@@ -9,13 +9,24 @@
 #include "service/util.h"
 #include "service/tracker/udp_tracker.h"
 
+#include "service/peer/peer_connection.h" // TODO: remove
+
 namespace ftorrent {
     void Manager::run() {
+        // TODO uncomment
+        tracker->start();
+
         for(int i=0;i<num_threads;i++) {
             thread_pool.create_thread(
                 boost::bind(&boost::asio::io_context::run, &io_context)
             );
         }
+
+
+        // peer test
+        boost::asio::ip::tcp::resolver resolver{io_context};
+        auto endpoints = resolver.resolve("127.0.0.1", "51413");
+        peer::PeerConnection peer_conn{io_context, endpoints, metainfo.info_hash, peer_id};
 
         thread_pool.join_all();
     }
@@ -36,7 +47,8 @@ namespace ftorrent {
         return result;
     }
 
-    void Manager::initTracker(const std::string& announce_url) {
+    void Manager::initTracker() {
+        std::string announce_url = metainfo.announce;
         int proto_separator = announce_url.find("://");
         std::string protocol = announce_url.substr(0, proto_separator);
         std::string rest = announce_url.substr(proto_separator + 3);
@@ -48,8 +60,7 @@ namespace ftorrent {
 
             std::cout << "host " << host << " service " << service << "\n";
 
-            tracker = std::make_unique<tracker::UdpTracker>(io_context, host, service, metainfo.info_hash, peer_id, 6881);
-            tracker->run();
+            tracker = std::make_shared<tracker::UdpTracker>(io_context, host, service, metainfo.info_hash, peer_id, 6881);
 
             return;
         }

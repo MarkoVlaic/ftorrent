@@ -5,10 +5,12 @@
 
 #include "service/torrent.h"
 #include "service/exception.h"
+#include "service/events/torrent_events.h"
+#include "service/types.h"
 
 namespace ftorrent {
 namespace torrent {
-    Piece::Piece(sha1::Hash h, uint32_t s): hash{h}, size{s} {
+    Piece::Piece(types::Hash h, uint32_t s): hash{h}, size{s} {
         uint32_t num_blocks = ceil((size * 1.0) / nominal_block_size);
         blocks.reserve(num_blocks);
 
@@ -87,7 +89,8 @@ namespace torrent {
                 if(sha1::hashValid(piece.validation_buf, piece.hash)) {
                     this->downloaded += piece.size;
                     std::cout << "Piece validation SUCCESS " << piece_index << std::endl;
-                    // TODO: send have notification
+                    auto event = std::make_shared<ftorrent::events::PieceVerifiedEvent>(piece);
+                    ftorrent::events::Dispatcher::get()->publish(event);
                 } else {
                     std::cout << "Piece validation FAIL " << piece_index << std::endl;
                     piece.reset();

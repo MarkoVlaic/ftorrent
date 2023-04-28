@@ -22,12 +22,12 @@ namespace ftorrent {
         active_torrent{metainfo, outfile_path, io_context},
         num_threads{nthreads}, peer_id{generatePeerId()},
         port{ 6881 } /* TODO: assign available port */{
-            initTracker(metainfo.announce);
+            initTracker();
         }
 
         void run();
     private:
-        void initTracker(const std::string& announce_url);
+        void initTracker();
     private:
         boost::asio::io_context io_context;
         boost::thread_group thread_pool;
@@ -40,7 +40,7 @@ namespace ftorrent {
         types::PeerId peer_id;
         uint16_t port;
 
-        std::unique_ptr<tracker::Tracker> tracker;
+        std::shared_ptr<tracker::Tracker> tracker;
 
         types::PeerId generatePeerId();
     };
