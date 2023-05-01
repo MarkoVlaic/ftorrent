@@ -25,7 +25,7 @@ namespace peer {
 
     class PeerConnection {
     public:
-        PeerConnection(boost::asio::io_context& ioc, const tcp::resolver::results_type& eps, const ftorrent::types::Hash& ih, const ftorrent::types::PeerId& pid);
+        PeerConnection(boost::asio::io_context& ioc, const tcp::resolver::results_type& eps, const ftorrent::types::Hash& ih, const ftorrent::types::PeerId& pid, std::function<void(std::shared_ptr<messages::Message>)> msg_hdlr);
         void send(std::shared_ptr<messages::Message> msg);
         void send(std::shared_ptr<messages::Message> msg, std::function<void()> handler);
 
@@ -48,6 +48,8 @@ namespace peer {
 
         ftorrent::types::Hash info_hash;
         ftorrent::types::PeerId peer_id;
+
+        std::function<void(std::shared_ptr<messages::Message>)> message_handler;
 
         HandshakeState handshake_state;
 

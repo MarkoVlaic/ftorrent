@@ -158,6 +158,9 @@ namespace serialization {
     template<>
     void deserialize(std::vector<uint8_t>& buf, Deserializer& deserializer);
 
+    template<>
+    void deserialize(std::vector<bool>& buf, Deserializer& deserializer);
+
 }; // serialization
 }; // ftorrent
 

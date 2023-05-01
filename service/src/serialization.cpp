@@ -1,7 +1,8 @@
 #include "service/serialization.h"
 #include "service/util.h"
 
-#include <iostream>
+#include <iostream> // TODO: remove
+#include <bitset> // TODO: remove
 #include <algorithm>
 
 namespace ftorrent {
@@ -181,8 +182,31 @@ namespace serialization {
 
     template<>
     void deserialize(std::vector<uint8_t>& buf, Deserializer& deserializer) {
-        for(int i=0;i<buf.size();i++) {
-            buf[i] = deserializer.get();
+        buf = deserializer.get(buf.size());
+    }
+
+    template<>
+    void deserialize(std::vector<bool>& buf, Deserializer& deserializer) {
+        std::cerr << "deser bitfield\n";
+
+        uint32_t num_blocks = buf.size() / 8 + (buf.size() % 8 > 0);
+        std::vector<uint8_t> blocks = deserializer.get(num_blocks);
+
+        for(int i=0;i<num_blocks;i++) {
+            uint8_t byte = blocks[i];
+            std::cerr << "BYTE: " << std::bitset<8>(byte) << "\n";
+
+            for(int j=0;j<8;j++) {
+                int buf_index = i*8 + j;
+                if(buf_index >= buf.size()) {
+                    break;
+                }
+
+                uint8_t value = (byte << j) & 0x80;
+                std::cerr << std::bitset<8>(value) << " ";
+                buf[buf_index] = (value > 0);
+            }
+            std::cerr << "\n";
         }
     }
 };

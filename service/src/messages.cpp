@@ -1,5 +1,6 @@
 #include <boost/endian/conversion.hpp>
 #include <array>
+#include <iostream> // TODO: remove
 
 #include "service/peer/messages.h"
 #include "service/serialization.h"
@@ -99,5 +100,64 @@ namespace serialization {
         deserialize(static_cast<peer::messages::Message&>(msg), deserializer);
         deserialize(msg.id, deserializer);
     }
+
+    template<>
+    void deserialize(peer::messages::Have& msg, Deserializer& deserializer) {
+        std::cerr << "deser have\n";
+        deserialize(static_cast<peer::messages::IdMessage&>(msg), deserializer);
+
+        deserialize(msg.index, deserializer);
+        msg.index = boost::endian::big_to_native(msg.index);
+    }
+
+    template<>
+    void deserialize(peer::messages::BitField& msg, Deserializer& deserializer) {
+        deserialize(static_cast<peer::messages::IdMessage&>(msg), deserializer);
+
+        msg.bitfield.resize((msg.len - 1) * 8);
+        deserialize(msg.bitfield, deserializer);
+    }
+
+    template<>
+    void deserialize(peer::messages::Request& msg, Deserializer& deserializer) {
+        deserialize(static_cast<peer::messages::IdMessage&>(msg), deserializer);
+
+        deserialize(msg.index, deserializer);
+        deserialize(msg.begin, deserializer);
+        deserialize(msg.length, deserializer);
+
+        msg.index = boost::endian::native_to_big(msg.index);
+        msg.begin = boost::endian::native_to_big(msg.begin);
+        msg.length = boost::endian::native_to_big(msg.length);
+    }
+
+    template<>
+    void deserialize(peer::messages::Piece& msg, Deserializer& deserializer) {
+        deserialize(static_cast<peer::messages::IdMessage&>(msg), deserializer);
+
+        deserialize(msg.index, deserializer);
+        deserialize(msg.begin, deserializer);
+
+        msg.block.resize(msg.len - 9);
+        deserialize(msg.block, deserializer);
+
+        msg.index = boost::endian::native_to_big(msg.index);
+        msg.begin = boost::endian::native_to_big(msg.begin);
+
+    }
+
+    template<>
+    void deserialize(peer::messages::Cancel& msg, Deserializer& deserializer) {
+        deserialize(static_cast<peer::messages::IdMessage&>(msg), deserializer);
+
+        deserialize(msg.index, deserializer);
+        deserialize(msg.begin, deserializer);
+        deserialize(msg.length, deserializer);
+
+        msg.index = boost::endian::native_to_big(msg.index);
+        msg.begin = boost::endian::native_to_big(msg.begin);
+        msg.length = boost::endian::native_to_big(msg.length);
+    }
+
 }; // serialization
 }; // ftorrent

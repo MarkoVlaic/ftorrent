@@ -35,15 +35,48 @@ conn, addr = s.accept()
 
 def cmd(stdin, mask):
     cmd = stdin.read().rstrip()
+    print('Send cmd', cmd)
     
     len_field = 0
     id_field = None
 
     if cmd == 'keep-alive':
         data = (chr(0) * 4).encode()
+        conn.sendall(data)
     elif cmd == 'choke':
-        pass
-    
+        data = struct.pack('!IB', 1, 0)
+        conn.sendall(data)
+    elif cmd == 'unchoke':
+        data = struct.pack('!IB', 1, 1)
+        conn.sendall(data)
+    elif cmd == 'interested':
+        data = struct.pack('!IB', 1, 2)
+        conn.sendall(data)
+    elif cmd == 'not-interested':
+        data = struct.pack('!IB', 1, 3)
+        conn.sendall(data)
+    elif cmd == 'have':
+        data = struct.pack('!IBI', 5, 4, 10)
+        conn.sendall(data)
+    elif cmd == 'bitfield':
+        data = struct.pack('!IBBB', 3, 5, 0b11010011, 0b00111000)
+        conn.sendall(data)
+    elif cmd == 'request':
+        data = struct.pack('!IBIII', 13, 6, 2, 1024 * 2, 1024)
+        conn.sendall(data)
+    elif cmd == 'piece':
+        block = ''
+        for i in range(1024):
+            block = block + chr(i%256)
+        block = block.encode()
+
+        data = struct.pack('!IBII1024s', 9 + 1024, 7, 2, 2*1024, block)
+        print('packet len', len(data))
+        conn.sendall(data)
+    elif cmd == 'cancel':
+        data = struct.pack('!IBIII', 13, 8, 2, 1024 * 2, 1024)
+        conn.sendall(data)
+
 def recv(conn, mask):
     data = conn.recv(4)
 

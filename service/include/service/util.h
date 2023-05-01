@@ -49,11 +49,11 @@ namespace util {
 
     template<typename BufType>
     void print_buffer(BufType buffer) {
-        std::cout << std::hex;
+        std::cerr << std::hex;
         for(auto byte : buffer) {
-            std::cout << (int) byte << " ";
+            std::cerr << (int) byte << " ";
         }
-        std::cout << std::endl;
+        std::cerr << std::endl << std::dec;
     }
 
 }; // util

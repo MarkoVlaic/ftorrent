@@ -1,5 +1,6 @@
 #include <boost/bind.hpp>
 #include <boost/asio.hpp>
+#include <boost/endian.hpp>
 #include <memory>
 #include <algorithm>
 #include <iostream> // TODO: remove
@@ -10,10 +11,10 @@
 
 namespace ftorrent {
 namespace peer {
-    PeerConnection::PeerConnection(boost::asio::io_context& ioc, const tcp::resolver::results_type& eps, const ftorrent::types::Hash& ih, const ftorrent::types::PeerId& pid):
+    PeerConnection::PeerConnection(boost::asio::io_context& ioc, const tcp::resolver::results_type& eps, const ftorrent::types::Hash& ih, const ftorrent::types::PeerId& pid, std::function<void(std::shared_ptr<messages::Message>)> msg_hdlr):
     io_context{ioc}, send_strand{boost::asio::make_strand(ioc)},
     socket{ioc}, endpoints{eps},
-    info_hash{ih}, peer_id{pid} {
+    info_hash{ih}, peer_id{pid}, message_handler{msg_hdlr} {
         std::cout << "make connect\n";
         boost::asio::async_connect(socket, endpoints, [this](const boost::system::error_code& e, tcp::endpoint) {
             std::cout << "connected\n";
@@ -151,7 +152,91 @@ namespace peer {
     }
 
     void PeerConnection::recieve_message() {
-        std::cout << "recieve message";
+        recieve(4, [this](){
+            uint32_t len;
+            std::vector<uint8_t> len_bytes = recv_buffer;
+
+            ftorrent::serialization::Deserializer deserializer{recv_buffer};
+            ftorrent::serialization::deserialize(len, deserializer);
+            len = boost::endian::big_to_native(len);
+
+            std::cout << "got len " << std::dec << len << std::endl;
+            if(len == 0) {
+                // KEEP-ALIVE
+                recieve_message();
+                return;
+            }
+
+            recieve(len, [len, len_bytes, this](){
+                messages::EMessageId id = static_cast<messages::EMessageId>(recv_buffer[0]);
+                std::cerr << "got id " << id << std::endl;
+
+                std::vector<uint8_t> msg_bytes;
+                msg_bytes.resize(4 + len);
+                std::copy(len_bytes.begin(), len_bytes.end(), msg_bytes.begin());
+                std::copy(recv_buffer.begin(), recv_buffer.end(), msg_bytes.begin() + 4);
+
+                std::cerr << "message bytes:";
+                ftorrent::util::print_buffer(msg_bytes);
+
+                ftorrent::serialization::Deserializer deserializer{msg_bytes};
+                std::shared_ptr<messages::Message> result;
+
+                switch(id) {
+                    case messages::EMessageId::CHOKE:
+                        std::cerr << "choke\n";
+                        result = std::make_shared<messages::Choke>();
+                        break;
+                    case messages::EMessageId::UNCHOKE:
+                        std::cerr << "UNCHOKE\n";
+                        result = std::make_shared<messages::Unchoke>();
+                        break;
+                    case messages::EMessageId::INTERESTED:
+                        std::cerr << "INTERESTED\n";
+                        result = std::make_shared<messages::Interested>();
+                        break;
+                    case messages::EMessageId::NOT_INTERESTED:
+                        std::cerr << "NOT INTERESTED\n";
+                        result = std::make_shared<messages::NotInterested>();
+                        break;
+                    case messages::EMessageId::HAVE: {
+                        std::cerr << "HAVE\n";
+                        result = std::make_shared<messages::Have>();
+                        ftorrent::serialization::deserialize(*std::static_pointer_cast<messages::Have>(result), deserializer);
+                        break;
+                    }
+                    case messages::EMessageId::BITFIELD: {
+                        std::cerr << "BITFIELD\n";
+                        result = std::make_shared<messages::BitField>();
+                        ftorrent::serialization::deserialize(*std::static_pointer_cast<messages::BitField>(result), deserializer);
+                        break;
+                    }
+                    case messages::EMessageId::REQUEST: {
+                        std::cerr << "REQUEST\n";
+                        result = std::make_shared<messages::Request>();
+                        ftorrent::serialization::deserialize(*std::static_pointer_cast<messages::Request>(result), deserializer);
+                        break;
+                    }
+                    case messages::EMessageId::PIECE: {
+                        std::cerr << "PIECE\n";
+                        result = std::make_shared<messages::Piece>();
+                        ftorrent::serialization::deserialize(*std::static_pointer_cast<messages::Piece>(result), deserializer);
+                        break;
+                    }
+                    case messages::EMessageId::CANCEL: {
+                        std::cerr << "CANCEL\n";
+                        result = std::make_shared<messages::Cancel>();
+                        ftorrent::serialization::deserialize(*std::static_pointer_cast<messages::Cancel>(result), deserializer);
+                        break;
+                    }
+                    default:
+                        std::cerr << "???\n";
+                }
+
+                message_handler(result);
+                recieve_message();
+            });
+        });
     }
 
 }; // peer

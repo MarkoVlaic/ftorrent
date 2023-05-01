@@ -74,6 +74,7 @@ namespace messages {
     };
 
     struct Have : public IdMessage {
+        Have(): Have{0} {} // Workaround
         Have(uint32_t i): IdMessage{5, EMessageId::HAVE}, index{i} {}
         void serialize(ftorrent::serialization::Serializer& ) override;
 
@@ -81,8 +82,9 @@ namespace messages {
     };
 
     struct BitField : public IdMessage {
+        BitField(): BitField{std::vector<bool>{}} {} // Workaround
         BitField(const std::vector<bool>& bf):
-            IdMessage{1 + static_cast<uint32_t>(bf.size()), EMessageId::BITFIELD},
+            IdMessage{1 + static_cast<uint32_t>(bf.size() / 8 + (bf.size() % 8 > 0 ? 1 : 0)), EMessageId::BITFIELD},
             bitfield{bf}
         {}
 
@@ -92,6 +94,7 @@ namespace messages {
     };
 
     struct Request : public IdMessage {
+        Request(): Request{0, 0, 0} {} // Workaround
         Request(uint32_t i, uint32_t b, uint32_t l):
             IdMessage{13, EMessageId::REQUEST},
             index{i}, begin{b}, length{l}
@@ -105,6 +108,7 @@ namespace messages {
     };
 
     struct Piece : public IdMessage {
+        Piece(): Piece{0, 0, std::vector<uint8_t>{}} {}
         Piece(uint32_t i, uint32_t b, const std::vector<uint8_t>& bl):
             IdMessage{9 + static_cast<uint32_t>(bl.size()), EMessageId::PIECE},
             index{i}, begin{b}, block(bl)
@@ -119,6 +123,7 @@ namespace messages {
 
 
     struct Cancel : public IdMessage {
+        Cancel(): Cancel{0, 0, 0} {}
         Cancel(uint32_t i, uint32_t b, uint32_t l):
             IdMessage{13, EMessageId::CANCEL},
             index{i}, begin{b}, length{l}

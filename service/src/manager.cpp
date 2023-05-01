@@ -26,7 +26,7 @@ namespace ftorrent {
         // peer test
         boost::asio::ip::tcp::resolver resolver{io_context};
         auto endpoints = resolver.resolve("127.0.0.1", "51413");
-        peer::PeerConnection peer_conn{io_context, endpoints, metainfo.info_hash, peer_id};
+        peer::PeerConnection peer_conn{io_context, endpoints, metainfo.info_hash, peer_id, [](auto msg){}};
 
         thread_pool.join_all();
     }
