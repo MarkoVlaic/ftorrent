@@ -26,6 +26,8 @@ namespace peer {
     class PeerConnection {
     public:
         PeerConnection(boost::asio::io_context& ioc, const tcp::resolver::results_type& eps, const ftorrent::types::Hash& ih, const ftorrent::types::PeerId& pid, std::function<void(std::shared_ptr<messages::Message>)> msg_hdlr);
+        PeerConnection(PeerConnection&&) = default;
+
         void send(std::shared_ptr<messages::Message> msg);
         void send(std::shared_ptr<messages::Message> msg, std::function<void()> handler);
 

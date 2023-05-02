@@ -96,10 +96,6 @@ def recv(conn, mask):
 
 
 with conn:
-    conn.setblocking(False)
-    orig_fl = fcntl.fcntl(sys.stdin, fcntl.F_GETFL)
-    fcntl.fcntl(sys.stdin, fcntl.F_SETFL, orig_fl | os.O_NONBLOCK)
-    
     print('Connected by', addr)
     pstr = "BitTorrent protocol"
 
@@ -121,6 +117,10 @@ with conn:
     print('package:', pstrlen + pstr.encode('ASCII') + reserved + info_hash + pid)
     my_handshake = pstrlen + pstr.encode('ASCII') + reserved + info_hash + pid
     conn.sendall(my_handshake)
+
+    conn.setblocking(False)
+    orig_fl = fcntl.fcntl(sys.stdin, fcntl.F_GETFL)
+    fcntl.fcntl(sys.stdin, fcntl.F_SETFL, orig_fl | os.O_NONBLOCK)
 
     sel = selectors.DefaultSelector()
     sel.register(conn, selectors.EVENT_READ, recv)

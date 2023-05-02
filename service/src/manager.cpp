@@ -9,24 +9,23 @@
 #include "service/util.h"
 #include "service/tracker/udp_tracker.h"
 
-#include "service/peer/peer_connection.h" // TODO: remove
+#include "service/peer/peer.h" // TODO: remove
 
 namespace ftorrent {
     void Manager::run() {
         // TODO uncomment
-        tracker->start();
+        //tracker->start();
+
+        // peer test
+        boost::asio::ip::tcp::resolver resolver{io_context};
+        auto endpoints = resolver.resolve("127.0.0.1", "51413");
+        peer::Peer peer{io_context, endpoints, metainfo.info_hash, peer_id, metainfo.pieces.size()};
 
         for(int i=0;i<num_threads;i++) {
             thread_pool.create_thread(
                 boost::bind(&boost::asio::io_context::run, &io_context)
             );
         }
-
-
-        // peer test
-        boost::asio::ip::tcp::resolver resolver{io_context};
-        auto endpoints = resolver.resolve("127.0.0.1", "51413");
-        peer::PeerConnection peer_conn{io_context, endpoints, metainfo.info_hash, peer_id, [](auto msg){}};
 
         thread_pool.join_all();
     }
