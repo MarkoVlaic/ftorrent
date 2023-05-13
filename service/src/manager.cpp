@@ -12,14 +12,39 @@
 #include "service/peer/peer.h" // TODO: remove
 
 namespace ftorrent {
+    Manager::Manager(const std::string& metainfo_path, const std::string& outfile_path, uint32_t nthreads):
+        metainfo{metainfo_path},
+        active_torrent{
+            metainfo, outfile_path, io_context,
+            [this](uint32_t i){ peer_handler.piece_complete(i); }
+        },
+        num_threads{nthreads}, peer_id{generatePeerId()},
+        port{ 6881 }, /* TODO: assign available port */
+        peer_handler{
+            io_context, metainfo.info_hash, peer_id, metainfo.pieces.size(), port,
+            [this](uint64_t i, uint64_t o, std::vector<uint8_t>& d){
+                active_torrent.write_block(i, o, d);
+            },
+            std::bind(&Manager::handle_block_request, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4)
+        }
+    {
+        std::cerr << "piece size " << metainfo.piece_length << "\n";
+        initTracker();
+    }
+
     void Manager::run() {
         // TODO uncomment
-        //tracker->start();
+        tracker->start();
 
         // peer test
+        /*
         boost::asio::ip::tcp::resolver resolver{io_context};
         auto endpoints = resolver.resolve("127.0.0.1", "51413");
         peer::Peer peer{io_context, endpoints, metainfo.info_hash, peer_id, metainfo.pieces.size()};
+        */
+
+        //types::PeerDescriptor pd{2130706433, 50007};
+        //peer_handler.add_peer(pd);
 
         for(int i=0;i<num_threads;i++) {
             thread_pool.create_thread(
@@ -52,6 +77,12 @@ namespace ftorrent {
         std::string protocol = announce_url.substr(0, proto_separator);
         std::string rest = announce_url.substr(proto_separator + 3);
 
+        auto on_peers = [this](std::vector<types::PeerDescriptor> peers) {
+            for(auto peer : peers) {
+                peer_handler.add_peer(peer);
+            }
+        };
+
         if(protocol == "udp") {
             int serv_separator = rest.find(":");
             std::string host = rest.substr(0, serv_separator);
@@ -59,7 +90,7 @@ namespace ftorrent {
 
             std::cout << "host " << host << " service " << service << "\n";
 
-            tracker = std::make_shared<tracker::UdpTracker>(io_context, host, service, metainfo.info_hash, peer_id, 6881);
+            tracker = std::make_shared<tracker::UdpTracker>(io_context, host, service, metainfo.info_hash, peer_id, 6881, on_peers);
 
             return;
         }
@@ -67,5 +98,13 @@ namespace ftorrent {
         std::string error = protocol;
         error += " protocol is not supported";
         throw ftorrent::Exception{error};
+    }
+
+    void Manager::handle_block_request(std::shared_ptr<peer::Peer> peer, uint32_t piece_index, uint32_t block_offset, uint32_t length) {
+        std::cerr << "handle_block_request ptr is " << peer << "\n";
+        active_torrent.read_block(piece_index, block_offset, length, [&, peer](std::shared_ptr<std::vector<uint8_t>> data) {
+            std::cerr << "read_block_handler\n";
+            peer->send_block(piece_index, block_offset, data);
+        });
     }
 };

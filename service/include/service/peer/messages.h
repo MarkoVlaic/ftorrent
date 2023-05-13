@@ -38,6 +38,10 @@ namespace messages {
         MessageId id;
     };
 
+    struct KeepAlive : public Message {
+        KeepAlive(): Message{0, EMessageId::KEEP_ALIVE} {}
+    };
+
     struct Handshake : public Message {
         Handshake(): Message{0, EMessageId::HANDSHAKE} {};
         Handshake(const std::string& p, const ftorrent::types::Hash& ih, const ftorrent::types::PeerId& pid);

@@ -7,27 +7,26 @@
 #include <array>
 #include <iostream>
 #include <memory>
+#include <cstdint>
 
 #include "service/metainfo.h"
 #include "service/torrent.h"
 #include "service/tracker/tracker.h"
 #include "service/tracker/udp_tracker.h"
 #include "service/types.h"
+#include "service/peer/peer_handler.h"
+#include "service/peer/peer.h"
 
 namespace ftorrent {
     class Manager {
     public:
-        Manager(const std::string& metainfo_path, const std::string& outfile_path, uint32_t nthreads):
-        metainfo{metainfo_path},
-        active_torrent{metainfo, outfile_path, io_context},
-        num_threads{nthreads}, peer_id{generatePeerId()},
-        port{ 6881 } /* TODO: assign available port */{
-            initTracker();
-        }
+        Manager(const std::string& metainfo_path, const std::string& outfile_path, uint32_t nthreads);
 
         void run();
     private:
         void initTracker();
+        types::PeerId generatePeerId();
+        void handle_block_request(std::shared_ptr<peer::Peer>, uint32_t, uint32_t, uint32_t);
     private:
         boost::asio::io_context io_context;
         boost::thread_group thread_pool;
@@ -41,8 +40,8 @@ namespace ftorrent {
         uint16_t port;
 
         std::shared_ptr<tracker::Tracker> tracker;
+        peer::PeerHandler peer_handler;
 
-        types::PeerId generatePeerId();
     };
 }; // ftorrent
 

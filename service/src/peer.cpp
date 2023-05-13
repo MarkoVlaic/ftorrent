@@ -8,10 +8,20 @@
 
 namespace ftorrent {
 namespace peer {
-    Peer::Peer(boost::asio::io_context& ioc, const tcp::resolver::results_type& eps, const ftorrent::types::Hash& ih, const ftorrent::types::PeerId& pid, uint64_t num_pieces):
-        peer_connection{ioc, eps, ih, pid, std::bind(&Peer::message_handler, this, std::placeholders::_1)},
-        piece_present(num_pieces, false)
+    Peer::Peer(
+        boost::asio::io_context& ioc, const tcp::resolver::results_type& eps,
+        const ftorrent::types::Hash& ih, const ftorrent::types::PeerId& pid,
+        uint64_t num_pieces, ConnectionClosedHandler connection_closed,
+        BlockRecievedHandler blk_rcvd, BlockRequestHandler blk_req
+    ):
+        peer_connection{std::make_shared<PeerConnection>(
+            ioc, eps, ih, pid,
+            std::bind(&Peer::message_handler, this, std::placeholders::_1),
+            [connection_closed, this]() { connection_closed(shared_from_this()); }
+        )},
+        piece_present(num_pieces, false), block_recieved{blk_rcvd}, block_requested{blk_req}
     {
+        std::cerr << "init peer conn ptr " << peer_connection << "\n";
     }
 
     void Peer::message_handler(std::shared_ptr<messages::Message> msg_ptr) {
@@ -60,6 +70,8 @@ namespace peer {
             case ftorrent::peer::messages::EMessageId::REQUEST: {
                 auto req_ptr = std::static_pointer_cast<ftorrent::peer::messages::Request>(msg_ptr);
                 std::cerr << "request: (index, begin, length) = (" << req_ptr->index << ", " << req_ptr->begin << ", " << req_ptr->length << ")\n";
+
+                block_requested(shared_from_this(), req_ptr->index, req_ptr->begin, req_ptr->length);
                 break;
             }
 
@@ -68,6 +80,8 @@ namespace peer {
                 std::cerr << "piece: (index, begin) = (" << piece_ptr->index << ", " << piece_ptr->begin << ")\n";
                 std::cerr << "block:\n";
                 ftorrent::util::print_buffer(piece_ptr->block);
+
+                block_recieved(piece_ptr->index, piece_ptr->begin, piece_ptr->block);
                 break;
             }
 
@@ -77,6 +91,20 @@ namespace peer {
                 break;
             }
         }
+    }
+
+    void Peer::send_block(uint64_t piece_index, uint64_t block_offset, std::shared_ptr<std::vector<uint8_t>> data) {
+        std::cerr << "send block\ndata:";
+        util::print_buffer(*data);
+        auto msg = std::make_shared<messages::Piece>(piece_index, block_offset, *data);
+        std::cerr << "before send ptr is " << peer_connection << "\n";
+        peer_connection->send(msg, [](){ std::cerr << "block sent\n"; });
+        std::cerr << "after send\n";
+    }
+
+    void Peer::send_have(uint64_t index) {
+        auto msg = std::make_shared<messages::Have>(index);
+        peer_connection->send(msg);
     }
 };
 };

@@ -4,6 +4,7 @@
 #include <memory>
 #include <algorithm>
 #include <iostream> // TODO: remove
+#include <mutex>
 
 #include "service/peer/peer_connection.h"
 #include "service/util.h"
@@ -11,25 +12,37 @@
 
 namespace ftorrent {
 namespace peer {
-    PeerConnection::PeerConnection(boost::asio::io_context& ioc, const tcp::resolver::results_type& eps, const ftorrent::types::Hash& ih, const ftorrent::types::PeerId& pid, std::function<void(std::shared_ptr<messages::Message>)> msg_hdlr):
-    io_context{ioc}, send_strand{boost::asio::make_strand(ioc)},
-    socket{ioc}, endpoints{eps},
-    info_hash{ih}, peer_id{pid}, message_handler{msg_hdlr} {
+    PeerConnection::PeerConnection(
+        boost::asio::io_context& ioc, const tcp::resolver::results_type& eps, const ftorrent::types::Hash& ih,
+        const ftorrent::types::PeerId& pid, std::function<void(std::shared_ptr<messages::Message>)> msg_hdlr,
+        std::function<void()> conn_closed_hdlr
+    ):
+        io_context{ioc}, send_strand{boost::asio::make_strand(ioc)},
+        socket{ioc}, endpoints{eps},
+        info_hash{ih}, peer_id{pid},
+        message_handler{msg_hdlr}, connection_closed_handler{conn_closed_hdlr},
+        keep_alive_timer{*this, 2 * 60}
+    {
         std::cerr << "make connect\n";
         boost::asio::async_connect(socket, endpoints, [this](const boost::system::error_code& e, tcp::endpoint) {
             std::cerr << "connected\n";
             this->connected(e);
         });
+
+        keep_alive_timer.reset();
     }
+
 
     void PeerConnection::connected(const boost::system::error_code& error) {
         if(error) {
-            throw HandshakeError{"Connect failed"};
+            std::cerr << "connect on " << socket.remote_endpoint() << "failed\n";
+            //throw HandshakeError{"Connect failed"};
+            connection_closed_handler();
             return;
         }
 
         // start the handshake
-        std::cerr << "connected handler\n";
+        std::cerr << "connected handler: " << socket.remote_endpoint() << "\n";
 
         auto handshake = std::make_shared<messages::Handshake>("BitTorrent protocol", info_hash, peer_id);
         ftorrent::util::print_buffer(info_hash);
@@ -58,26 +71,41 @@ namespace peer {
             return;
         }
 
+        std::cerr << "after handshake check";
+
         ftorrent::serialization::Serializer serializer;
         msg->serialize(serializer);
 
-        std::vector<uint8_t> buf(serializer.data());
-        send_buffers.push_back(buf);
-        std::size_t buf_index = send_buffers.size() - 1;
+        std::cerr << "serialized\n";
 
-        std::cerr << "out buf\n";
-        ftorrent::util::print_buffer(buf);
+        auto buf = std::make_shared<std::vector<uint8_t>>(serializer.data());
 
+        std::cerr << "buff\n";
+        {
+            std::lock_guard<std::mutex> lock(send_mutex);
+            send_buffers.push_back(buf);
+        }
+
+        std::cerr << "out buf with len" << buf->size() << "\n";
+        ftorrent::util::print_buffer(*buf);
+
+        auto self = shared_from_this();
         boost::asio::async_write(
             socket,
-            boost::asio::buffer(send_buffers[buf_index]),
-            boost::asio::bind_executor(send_strand, [&, handler, this](const boost::system::error_code& err, long unsigned int) {
+            boost::asio::buffer(*buf),
+            boost::asio::bind_executor(send_strand, [&, handler, self](const boost::system::error_code& err, long unsigned int) {
+                std::cerr << "in send handler\n";
                 if(err) {
-                    // TODO: signal connection closed
+                    // TODO: rethink this decision
+                    //self->connection_closed_handler();
+                    std::cerr << "send failed\n";
                     return;
                 }
 
-                send_buffers.erase(send_buffers.begin() + buf_index);
+                std::cerr << "before erase\n";
+                auto it = std::find(send_buffers.begin(), send_buffers.end(), buf);
+                self->send_buffers.erase(it);
+                self->keep_alive_timer.reset();
                 handler();
                 //std::cout << "fire handler\n";
             })
@@ -91,6 +119,8 @@ namespace peer {
             [&, handler](const boost::system::error_code& e, long unsigned int){
                 if(e) {
                     // TODO: signal recieve error
+                    std::cerr << "recv err " << e << "\n";
+                    //connection_closed_handler();
                     return;
                 }
 
@@ -238,6 +268,28 @@ namespace peer {
                 recieve_message();
             });
         });
+    }
+
+    PeerConnection::KeepAliveTimer::KeepAliveTimer(PeerConnection& p, uint32_t seconds):
+        connection{p}, interval{seconds}, timer{p.io_context}
+    {}
+
+    void PeerConnection::KeepAliveTimer::reset() {
+        timer.expires_from_now(interval);
+        timer.async_wait(boost::bind(&PeerConnection::KeepAliveTimer::handler, this, boost::asio::placeholders::error));
+    }
+
+    void PeerConnection::KeepAliveTimer::stop() {
+        timer.cancel();
+    }
+
+    void PeerConnection::KeepAliveTimer::handler(const boost::system::error_code& e) {
+        if(e == boost::asio::error::operation_aborted) {
+            return;
+        }
+
+        auto msg = std::make_shared<messages::KeepAlive>();
+        connection.send(msg);
     }
 
 }; // peer

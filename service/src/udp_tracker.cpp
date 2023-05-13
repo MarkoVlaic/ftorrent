@@ -138,10 +138,14 @@ namespace tracker {
         }
     }; // udp
 
-    UdpTracker::UdpTracker(boost::asio::io_context& ioc, std::string hostname, std::string port, const ftorrent::types::Hash& h, const ftorrent::types::PeerId& pid, uint16_t listen_port):
-    Tracker{h, pid, listen_port}, strand{boost::asio::make_strand(ioc)},
-    socket{ioc}, retry_timer{strand},
-    announce_timer{strand}, connect_timer{strand} {
+    UdpTracker::UdpTracker(
+        boost::asio::io_context& ioc, std::string hostname, std::string port,
+        const ftorrent::types::Hash& h, const ftorrent::types::PeerId& pid, uint16_t listen_port, PeerHandler ph
+    ):
+        Tracker{h, pid, listen_port, ph}, strand{boost::asio::make_strand(ioc)},
+        socket{ioc}, retry_timer{strand},
+        announce_timer{strand}, connect_timer{strand}
+    {
         socket.open(boost::asio::ip::udp::v4());
 
         boost::asio::ip::udp::resolver resolver{ioc};
@@ -288,10 +292,11 @@ namespace tracker {
             announce_interval = response.interval;
 
             std::cout << "interval " << response.interval << " leechers " << response.leechers << "\n";
-            /* TODO: dispatch new peers */
+
             for(auto pd : response.peers) {
                 std::cout << "peer: " << pd.ip << " " << pd.port << std::endl;
             }
+            on_peers(response.peers);
 
             scheduleRequest<udp::AnnounceRequest>(
                 announce_timer,

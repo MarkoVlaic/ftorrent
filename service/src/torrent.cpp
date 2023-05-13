@@ -2,11 +2,13 @@
 #include <algorithm>
 #include <iostream>
 #include <fstream>
+#include <mutex>
 
 #include "service/torrent.h"
 #include "service/exception.h"
 #include "service/events/torrent_events.h"
 #include "service/types.h"
+#include <service/util.h>
 
 namespace ftorrent {
 namespace torrent {
@@ -26,22 +28,25 @@ namespace torrent {
         }
     }
 
-    void Piece::blockWritten(const boost::system::error_code &e, uint32_t offset) {
+    void Piece::block_written(const boost::system::error_code &e, uint32_t offset) {
         if(e.value() != 0) {
             throw ftorrent::Exception(e.message());
         }
 
-        Block& block = getBlockByOffset(offset);
+        Block& block = get_block_by_offset(offset);
         block.complete = true;
         std::vector<uint8_t> empty;
         block.write_buf.swap(empty); // empty the vector so it does not take memory
         complete_blocks++;
     }
 
-    Torrent::Torrent(const ftorrent::Metainfo& metainfo, const std::string& output_path, boost::asio::io_context& io_context):
+    Torrent::Torrent(
+        const ftorrent::Metainfo& metainfo, const std::string& output_path, boost::asio::io_context& io_context,
+        std::function<void(uint32_t)> piece_complete_handler
+    ):
             size{metainfo.length}, nominal_piece_size{metainfo.piece_length},
             out_file{io_context, output_path, boost::asio::random_access_file::create | boost::asio::random_access_file::read_write},
-            strand{boost::asio::make_strand(io_context)}
+            strand{boost::asio::make_strand(io_context)}, piece_complete{piece_complete_handler}
         {
             pieces.reserve(metainfo.pieces.size());
             for(auto it=metainfo.pieces.begin();it!=metainfo.pieces.end();it++) {
@@ -58,25 +63,48 @@ namespace torrent {
             out_file.resize(size);
         }
 
-    void Torrent::writeBlock(uint64_t piece_index, uint64_t block_offset, const std::vector<uint8_t>& data) {
+    void Torrent::write_block(uint64_t piece_index, uint64_t block_offset, const std::vector<uint8_t>& data) {
         uint32_t file_offset = piece_index * nominal_piece_size + block_offset;
         //std::cout << "file off " << file_offset << std::endl;
-        Block& block = pieces[piece_index].getBlockByOffset(block_offset);
+        Block& block = pieces[piece_index].get_block_by_offset(block_offset);
         block.write_buf = std::move(data);
 
         boost::asio::async_write_at(
             out_file, file_offset, boost::asio::buffer(block.write_buf), boost::asio::transfer_exactly(data.size()),
             boost::asio::bind_executor(strand, [this, piece_index, block_offset](boost::system::error_code e, std::size_t) {
-                this->pieces[piece_index].blockWritten(e, block_offset);
+                this->pieces[piece_index].block_written(e, block_offset);
                 if(this->pieces[piece_index].complete()) {
                     //std::cout << "Send validate " << piece_index << std::endl;
-                    validatePiece(piece_index);
+                    validate_piece(piece_index);
                 }
             })
         );
     }
 
-    void Torrent::validatePiece(uint64_t piece_index) {
+    void Torrent::read_block(uint32_t piece_index, uint32_t block_offset, uint32_t length, std::function<void(std::shared_ptr<std::vector<uint8_t>>)> handler) {
+        uint64_t file_offset = piece_index * nominal_piece_size + block_offset;
+        std::cerr << "read block offset " << file_offset << "\n";
+
+        auto buf = std::make_shared<std::vector<uint8_t>>(length);
+        {
+            std::lock_guard<std::mutex> lock(read_mutex);
+            read_buffers.push_back(buf);
+        }
+
+        std::cerr << "pass the mutex\n";
+        boost::asio::async_read_at(
+            out_file, file_offset, boost::asio::buffer(*buf),
+            boost::asio::transfer_exactly(length),
+            boost::asio::bind_executor(strand, [this, buf, handler](const boost::system::error_code& e, std::size_t){
+                std::cerr << "buf after read\n";
+                util::print_buffer(*buf);
+                handler(buf);
+                // read_buffers.erase(read_buffers.begin() + buffer_index);
+            })
+        );
+    }
+
+    void Torrent::validate_piece(uint64_t piece_index) {
         //std::cout << "got validate " << piece_index << std::endl;
         Piece& piece = pieces[piece_index];
         uint64_t offset = piece_index * nominal_piece_size;
@@ -89,8 +117,7 @@ namespace torrent {
                 if(sha1::hashValid(piece.validation_buf, piece.hash)) {
                     this->downloaded += piece.size;
                     std::cout << "Piece validation SUCCESS " << piece_index << std::endl;
-                    auto event = std::make_shared<ftorrent::events::PieceVerifiedEvent>(piece);
-                    ftorrent::events::Dispatcher::get()->publish(event);
+                    piece_complete(piece_index);
                 } else {
                     std::cout << "Piece validation FAIL " << piece_index << std::endl;
                     piece.reset();

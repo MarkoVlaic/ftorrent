@@ -11,6 +11,7 @@
 
 #include "tracker.h"
 #include "../exception.h"
+#include "../types.h"
 
 #define BOOST_ASIO_ENABLE_HANDLER_TRACKING 1
 
@@ -86,17 +87,10 @@ namespace udp {
     };
 
     struct AnnounceResponse : public Response {
-        struct PeerDescriptor {
-            PeerDescriptor(uint32_t i, uint16_t p): ip{i}, port{p} {}
-
-            uint32_t ip;
-            uint16_t port;
-        };
-
         uint32_t interval;
         uint32_t leechers;
         uint32_t seeders;
-        std::vector<PeerDescriptor> peers;
+        std::vector<types::PeerDescriptor> peers;
     };
 
     struct ErrorResponse : public Response {
@@ -168,7 +162,7 @@ namespace udp {
 
     class UdpTracker : public Tracker {
     public:
-        UdpTracker(boost::asio::io_context& ioc, std::string hostname, std::string port, const types::Hash& h, const ftorrent::types::PeerId& pid, uint16_t listen_port);
+        UdpTracker(boost::asio::io_context& ioc, std::string hostname, std::string port, const types::Hash& h, const ftorrent::types::PeerId& pid, uint16_t listen_port, PeerHandler ph);
 
         ~UdpTracker() = default;
 

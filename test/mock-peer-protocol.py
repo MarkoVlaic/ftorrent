@@ -4,6 +4,7 @@ import selectors
 import fcntl
 import os
 import struct
+import math
 
 HOST = None
 PORT = 50007
@@ -32,6 +33,24 @@ if s is None:
     sys.exit(1)
 
 conn, addr = s.accept()
+test_file = open('./test-file.png', 'rb')
+test_file_size = os.path.getsize('./test-file.png')
+
+PIECE_SIZE = 1 << 15
+BLOCK_SIZE = 1<<14
+
+pieces_in_file = math.ceil(test_file_size/PIECE_SIZE)
+blocks_per_piece = math.ceil(PIECE_SIZE / BLOCK_SIZE)
+
+print(f'pieces in file: {pieces_in_file}\nblocks per piece{blocks_per_piece}')
+
+def read_block(piece_index, block_offset):
+    piece_offset = piece_index * PIECE_SIZE
+    byte_offset = piece_offset + block_offset
+    block_len = min(test_file_size - byte_offset, BLOCK_SIZE)
+
+    test_file.seek(byte_offset)
+    return test_file.read(block_len)  
 
 def cmd(stdin, mask):
     cmd = stdin.read().rstrip()
@@ -76,7 +95,61 @@ def cmd(stdin, mask):
     elif cmd == 'cancel':
         data = struct.pack('!IBIII', 13, 8, 2, 1024 * 2, 1024)
         conn.sendall(data)
+    elif cmd == 'send-test-file':
+        print('send')
+        for piece_i in range(pieces_in_file):
+            for block_i in range(blocks_per_piece):
+                block = read_block(piece_i, block_i * BLOCK_SIZE)
+                data = struct.pack(f'!IBII{BLOCK_SIZE}s', 9 + BLOCK_SIZE, 7, piece_i, block_i*BLOCK_SIZE, block)
+                conn.sendall(data)
+            
 
+    elif cmd == 'get-test-file':
+        out_test_file = open('./test-out.png', 'wb')
+        for piece_i in range(pieces_in_file):
+            print(f'start piece {piece_i}')
+            for block_i in range(blocks_per_piece):
+                print(f'start block {block_i}')
+                offset = piece_i * PIECE_SIZE + block_i * BLOCK_SIZE
+                if offset < 0:
+                    continue
+                block_len = min(test_file_size - offset, BLOCK_SIZE)
+                expected_response_bytes = 13 + block_len
+                data = struct.pack('!IBIII', 13, 6, piece_i, block_i * BLOCK_SIZE, block_len)
+                conn.sendall(data)
+                print('sent')
+
+                while True:
+                    try:
+                        got_bytes = 0
+                        buffer = b''
+                        while got_bytes != expected_response_bytes:
+                            bytes = conn.recv(BLOCK_SIZE)
+                            buffer = buffer + bytes
+                            got_bytes += len(bytes)
+                        print(f'recvd {len(buffer)}')
+                        (_, _, _, _, block) = struct.unpack(f'!IBII{block_len}s', buffer)
+                        
+                        '''
+                        print('block', end=' ')
+                        for byte in block:
+                            print('{0:04x}'.format(int(byte)), end=' ')
+                        print()
+                        '''
+
+                        out_test_file.seek(offset)
+                        print('after seek')
+                        out_test_file.write(block)
+                        print('should break')
+                        break
+                    except BlockingIOError:
+                        continue
+
+                print(f'block {block_i}')
+            print(f'piece {piece_i}')
+
+        out_test_file.close()
+        print('done')
 def recv(conn, mask):
     data = conn.recv(4)
 
@@ -93,7 +166,6 @@ def recv(conn, mask):
 
     data = conn.recv(pack_len)
     print('data', data)
-
 
 with conn:
     print('Connected by', addr)

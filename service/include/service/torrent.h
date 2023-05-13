@@ -7,6 +7,9 @@
 #include <boost/asio.hpp>
 #include <boost/asio/random_access_file.hpp>
 #include <memory>
+#include <functional>
+#include <unordered_map>
+#include <mutex>
 
 #include "service/metainfo.h"
 #include "service/events/events.h"
@@ -35,14 +38,15 @@ namespace torrent {
         std::vector<Block> blocks;
 
         std::vector<uint8_t> validation_buf;
+        std::unordered_map<uint32_t, std::vector<uint8_t>> block_read_buffers;
 
-        void blockWritten(const boost::system::error_code& e, uint32_t offset);
+        void block_written(const boost::system::error_code& e, uint32_t offset);
 
         bool complete() {
             return complete_blocks == blocks.size();
         }
 
-        Block& getBlockByOffset(uint64_t offset) {
+        Block& get_block_by_offset(uint64_t offset) {
             uint64_t index = offset / nominal_block_size;
             return blocks[index];
         }
@@ -58,13 +62,18 @@ namespace torrent {
         uint32_t complete_blocks = 0;
     };
 
-    class Torrent : public std::enable_shared_from_this<Torrent>, public ftorrent::events::Subscriber {
+    class Torrent {
     public:
-        Torrent(const ftorrent::Metainfo& metainfo, const std::string& output_path, boost::asio::io_context& io_context);
+        Torrent(
+            const ftorrent::Metainfo& metainfo, const std::string& output_path, boost::asio::io_context& io_context,
+            std::function<void(uint32_t)> piece_complete_handler
+        );
 
-        void writeBlock(uint64_t piece_index, uint64_t block_offset, const std::vector<uint8_t>& data);
+        void write_block(uint64_t piece_index, uint64_t block_offset, const std::vector<uint8_t>& data);
+        void read_block(uint32_t piece_index, uint32_t block_offset, uint32_t length, std::function<void(std::shared_ptr<std::vector<uint8_t>>)> handler);
 
-        void processEvent(std::shared_ptr<ftorrent::events::Event>) override {}
+    private:
+        void validate_piece(uint64_t piece_index);
     private:
         uint64_t size;
         uint64_t nominal_piece_size;
@@ -76,7 +85,10 @@ namespace torrent {
         boost::asio::random_access_file out_file;
         boost::asio::strand<boost::asio::io_context::executor_type> strand;
 
-        void validatePiece(uint64_t piece_index);
+        std::vector<std::shared_ptr<std::vector<uint8_t>>> read_buffers;
+        std::mutex read_mutex;
+
+        std::function<void(uint32_t)> piece_complete;
     };
 } // torrent
 }; // ftorrent
