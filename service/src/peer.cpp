@@ -91,8 +91,8 @@ namespace peer {
             case ftorrent::peer::messages::EMessageId::PIECE: {
                 auto piece_msg = std::static_pointer_cast<ftorrent::peer::messages::Piece>(msg_ptr);
                 std::cerr << "piece: (index, begin) = (" << piece_msg->index << ", " << piece_msg->begin << ")\n";
-                std::cerr << "block:\n";
-                ftorrent::util::print_buffer(piece_msg->block);
+                //std::cerr << "block:\n";
+                //ftorrent::util::print_buffer(piece_msg->block);
 
                 auto piece = piece_picker->get_piece(piece_msg->index);
                 auto block = piece->get_block_by_offset(piece_msg->begin);
