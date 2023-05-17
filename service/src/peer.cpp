@@ -62,6 +62,11 @@ namespace peer {
                 piece_picker->on_have(have_ptr->index);
 
                 refresh_download_interest();
+
+                if(download.is_interested() && !download.is_choked()) {
+                    request_blocks();
+                }
+
                 break;
             }
 
