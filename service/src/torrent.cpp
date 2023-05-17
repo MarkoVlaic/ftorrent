@@ -57,7 +57,7 @@ namespace ftorrent {
             boost::asio::transfer_exactly(length),
             boost::asio::bind_executor(strand, [this, buf, handler](const boost::system::error_code& e, std::size_t){
                 std::cerr << "buf after read\n";
-                util::print_buffer(*buf);
+                //util::print_buffer(*buf);
                 handler(buf);
                 // read_buffers.erase(read_buffers.begin() + buffer_index);
             })

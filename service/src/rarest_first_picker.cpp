@@ -58,7 +58,6 @@ namespace piece_picker {
     }
 
     void RarestFirstPicker::sort_pieces() {
-        std::cerr << "begin num pieces " << pieces.size() << "\n";
         std::sort(pieces.begin(), pieces.end(), AvailabilityCmp{});
 
         availability_buckets.clear();
@@ -76,23 +75,6 @@ namespace piece_picker {
             bucket.push_back(*it);
         }
         availability_buckets.push_back(bucket);
-
-        std::cerr << "sorted pieces:\n";
-        for(int i=0;i<availability_buckets.size();i++) {
-            auto bucket = availability_buckets[i];
-            if(bucket.size() == 0) {
-                std::cerr << "bucket " << i << " empty\n";
-                continue;
-            }
-
-            std::cerr << "bucket " << i << ": availability = " << bucket[0]->get_availability() << "\n";
-            for(auto piece : bucket) {
-                std::cerr << piece->index << " ";
-            }
-            std::cerr << "\n";
-
-        }
-
     }
 };
 };

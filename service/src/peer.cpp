@@ -116,7 +116,7 @@ namespace peer {
 
     void Peer::send_block(uint64_t piece_index, uint64_t block_offset, std::shared_ptr<std::vector<uint8_t>> data) {
         std::cerr << "send block\ndata:";
-        util::print_buffer(*data);
+        //util::print_buffer(*data);
         auto msg = std::make_shared<messages::Piece>(piece_index, block_offset, *data);
         std::cerr << "before send ptr is " << peer_connection << "\n";
         peer_connection->send(msg, [](){ std::cerr << "block sent\n"; });

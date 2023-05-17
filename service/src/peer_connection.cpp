@@ -83,7 +83,7 @@ namespace peer {
         }
 
         std::cerr << "out buf with len" << buf->size() << "\n";
-        ftorrent::util::print_buffer(*buf);
+        //ftorrent::util::print_buffer(*buf);
 
         auto self = shared_from_this();
         boost::asio::async_write(
@@ -204,7 +204,7 @@ namespace peer {
                 std::copy(recv_buffer.begin(), recv_buffer.end(), msg_bytes.begin() + 4);
 
                 std::cerr << "message bytes:";
-                ftorrent::util::print_buffer(msg_bytes);
+                //ftorrent::util::print_buffer(msg_bytes);
 
                 ftorrent::serialization::Deserializer deserializer{msg_bytes};
                 std::shared_ptr<messages::Message> result;
