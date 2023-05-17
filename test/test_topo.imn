@@ -71,9 +71,10 @@ node n2 {
 	!
     }
     canvas c0
-    iconcoords {720 120}
-    labelcoords {720 151}
+    iconcoords {744 312}
+    labelcoords {744 343}
     interface-peer {eth0 n5}
+    docker-image imunes-ubuntu
 }
 
 node n3 {
@@ -97,9 +98,10 @@ node n3 {
 	!
     }
     canvas c0
-    iconcoords {696 384}
-    labelcoords {696 415}
+    iconcoords {720 432}
+    labelcoords {720 463}
     interface-peer {eth0 n5}
+    docker-image imunes-ubuntu
 }
 
 node n4 {
@@ -107,6 +109,11 @@ node n4 {
     model quagga
     network-config {
 	hostname router1
+	!
+	interface eth2
+	 ip address 10.0.4.1/24
+	 ipv6 address fc00:4::1/64
+	 mac address 42:00:aa:00:00:0b
 	!
 	interface eth1
 	 ip address 10.0.2.2/24
@@ -141,6 +148,7 @@ node n4 {
     labelcoords {360 193}
     interface-peer {eth0 n0}
     interface-peer {eth1 n6}
+    interface-peer {eth2 n7}
 }
 
 node n5 {
@@ -150,8 +158,8 @@ node n5 {
 	!
     }
     canvas c0
-    iconcoords {528 216}
-    labelcoords {528 239}
+    iconcoords {576 336}
+    labelcoords {576 359}
     interface-peer {e0 n2}
     interface-peer {e1 n3}
     interface-peer {e2 n6}
@@ -162,6 +170,11 @@ node n6 {
     model quagga
     network-config {
 	hostname router2
+	!
+	interface eth3
+	 ip address 10.0.6.1/24
+	 ipv6 address fc00:6::1/64
+	 mac address 42:00:aa:00:00:0f
 	!
 	interface eth2
 	 ip address 10.0.3.1/24
@@ -202,6 +215,184 @@ node n6 {
     interface-peer {eth0 n5}
     interface-peer {eth1 n4}
     interface-peer {eth2 n1}
+    interface-peer {eth3 n10}
+}
+
+node n7 {
+    type lanswitch
+    network-config {
+	hostname switch2
+	!
+    }
+    canvas c0
+    iconcoords {552 120}
+    labelcoords {552 143}
+    interface-peer {e0 n9}
+    interface-peer {e1 n8}
+    interface-peer {e2 n4}
+}
+
+node n8 {
+    type pc
+    network-config {
+	hostname peer4
+	!
+	interface eth0
+	 ip address 10.0.4.21/24
+	 ipv6 address fc00:4::21/64
+	 mac address 42:00:aa:00:00:0a
+	!
+	interface lo0
+	 type lo
+	 ip address 127.0.0.1/8
+	 ipv6 address ::1/128
+	!
+	ip route 0.0.0.0/0 10.0.4.1
+	!
+	ipv6 route ::/0 fc00:4::1
+	!
+    }
+    canvas c0
+    iconcoords {720 120}
+    labelcoords {720 151}
+    interface-peer {eth0 n7}
+    docker-image imunes-ubuntu
+}
+
+node n9 {
+    type pc
+    network-config {
+	hostname peer3
+	!
+	interface eth0
+	 ip address 10.0.4.20/24
+	 ipv6 address fc00:4::20/64
+	 mac address 42:00:aa:00:00:09
+	!
+	interface lo0
+	 type lo
+	 ip address 127.0.0.1/8
+	 ipv6 address ::1/128
+	!
+	ip route 0.0.0.0/0 10.0.4.1
+	!
+	ipv6 route ::/0 fc00:4::1
+	!
+    }
+    canvas c0
+    iconcoords {624 24}
+    labelcoords {624 55}
+    interface-peer {eth0 n7}
+    docker-image imunes-ubuntu
+}
+
+node n10 {
+    type router
+    model quagga
+    network-config {
+	hostname router3
+	!
+	interface eth1
+	 ip address 10.0.6.2/24
+	 ipv6 address fc00:6::2/64
+	 mac address 42:00:aa:00:00:10
+	!
+	interface eth0
+	 ip address 10.0.5.1/24
+	 ipv6 address fc00:5::1/64
+	 mac address 42:00:aa:00:00:0e
+	!
+	interface lo0
+	 type lo
+	 ip address 127.0.0.1/8
+	 ipv6 address ::1/128
+	!
+	router rip
+	 redistribute static
+	 redistribute connected
+	 redistribute ospf
+	 network 0.0.0.0/0
+	!
+	router ripng
+	 redistribute static
+	 redistribute connected
+	 redistribute ospf6
+	 network ::/0
+	!
+    }
+    canvas c0
+    iconcoords {456 432}
+    labelcoords {456 457}
+    interface-peer {eth0 n11}
+    interface-peer {eth1 n6}
+}
+
+node n11 {
+    type lanswitch
+    network-config {
+	hostname switch3
+	!
+    }
+    canvas c0
+    iconcoords {480 528}
+    labelcoords {480 551}
+    interface-peer {e0 n13}
+    interface-peer {e1 n12}
+    interface-peer {e2 n10}
+}
+
+node n12 {
+    type pc
+    network-config {
+	hostname peer5
+	!
+	interface eth0
+	 ip address 10.0.5.21/24
+	 ipv6 address fc00:5::21/64
+	 mac address 42:00:aa:00:00:0d
+	!
+	interface lo0
+	 type lo
+	 ip address 127.0.0.1/8
+	 ipv6 address ::1/128
+	!
+	ip route 0.0.0.0/0 10.0.5.1
+	!
+	ipv6 route ::/0 fc00:5::1
+	!
+    }
+    canvas c0
+    iconcoords {600 576}
+    labelcoords {600 607}
+    interface-peer {eth0 n11}
+    docker-image imunes-ubuntu
+}
+
+node n13 {
+    type pc
+    network-config {
+	hostname peer6
+	!
+	interface eth0
+	 ip address 10.0.5.20/24
+	 ipv6 address fc00:5::20/64
+	 mac address 42:00:aa:00:00:0c
+	!
+	interface lo0
+	 type lo
+	 ip address 127.0.0.1/8
+	 ipv6 address ::1/128
+	!
+	ip route 0.0.0.0/0 10.0.5.1
+	!
+	ipv6 route ::/0 fc00:5::1
+	!
+    }
+    canvas c0
+    iconcoords {384 576}
+    labelcoords {384 607}
+    interface-peer {eth0 n11}
+    docker-image imunes-ubuntu
 }
 
 link l0 {
@@ -231,6 +422,41 @@ link l4 {
 
 link l5 {
     nodes {n6 n1}
+    bandwidth 0
+}
+
+link l6 {
+    nodes {n7 n9}
+    bandwidth 0
+}
+
+link l7 {
+    nodes {n7 n8}
+    bandwidth 0
+}
+
+link l8 {
+    nodes {n4 n7}
+    bandwidth 0
+}
+
+link l9 {
+    nodes {n11 n13}
+    bandwidth 0
+}
+
+link l10 {
+    nodes {n11 n12}
+    bandwidth 0
+}
+
+link l11 {
+    nodes {n10 n11}
+    bandwidth 0
+}
+
+link l12 {
+    nodes {n6 n10}
     bandwidth 0
 }
 
