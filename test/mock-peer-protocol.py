@@ -100,7 +100,9 @@ def cmd(stdin, mask):
         for piece_i in range(pieces_in_file):
             for block_i in range(blocks_per_piece):
                 block = read_block(piece_i, block_i * BLOCK_SIZE)
-                data = struct.pack(f'!IBII{BLOCK_SIZE}s', 9 + BLOCK_SIZE, 7, piece_i, block_i*BLOCK_SIZE, block)
+                offset = piece_i * PIECE_SIZE + block_i * BLOCK_SIZE
+            
+                data = struct.pack(f'!IBII{len(block)}s', 9 + BLOCK_SIZE, 7, piece_i, block_i*BLOCK_SIZE, block)
                 conn.sendall(data)
             
 

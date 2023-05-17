@@ -63,7 +63,7 @@ namespace peer {
     }
 
     void PeerConnection::send(std::shared_ptr<messages::Message> msg, std::function<void()> handler) {
-        std::cout << "send\n";
+        std::cerr << "send id = " << std::dec << (int)msg->id << "\n";
 
         if(!handshake_state.complete() && msg->id != messages::EMessageId::HANDSHAKE) {
             auto pending = std::make_pair(msg, handler);
@@ -71,12 +71,8 @@ namespace peer {
             return;
         }
 
-        std::cerr << "after handshake check";
-
         ftorrent::serialization::Serializer serializer;
         msg->serialize(serializer);
-
-        std::cerr << "serialized\n";
 
         auto buf = std::make_shared<std::vector<uint8_t>>(serializer.data());
 

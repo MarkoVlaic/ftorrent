@@ -6,10 +6,12 @@
 #include <vector>
 #include <functional>
 
+#include "./abstract_peer.h"
 #include "./peer_connection.h"
 #include "./messages.h"
 #include "../types.h"
 #include "./handler_types.h"
+#include "../piece_picker/piece_picker.h"
 
 namespace ftorrent {
 namespace peer {
@@ -41,18 +43,25 @@ namespace peer {
         bool interested = false;
     };
 
-    class Peer : public std::enable_shared_from_this<Peer> {
+    class Peer : public AbstractPeer,  public std::enable_shared_from_this<Peer> {
     public:
         Peer(
             boost::asio::io_context& ioc, const tcp::resolver::results_type& eps,
             const ftorrent::types::Hash& ih, const ftorrent::types::PeerId& pid,
-            uint64_t num_pieces, ConnectionClosedHandler connection_closed,
-            BlockRecievedHandler blk_rcvd, BlockRequestHandler blk_req
+            uint64_t num_pieces, std::shared_ptr<ftorrent::piece_picker::PiecePicker> pc_pckr,
+            ConnectionClosedHandler connection_closed, BlockRecievedHandler blk_rcvd, BlockRequestHandler blk_req
         );
+        ~Peer() override = default;
 
-        void message_handler(std::shared_ptr<messages::Message>);
-        void send_block(uint64_t piece_index, uint64_t block_offset, std::shared_ptr<std::vector<uint8_t>> data);
-        void send_have(uint64_t index);
+        void message_handler(std::shared_ptr<messages::Message>) override;
+        void send_block(uint64_t piece_index, uint64_t block_offset, std::shared_ptr<std::vector<uint8_t>> data) override;
+        void send_have(uint64_t index) override;
+
+        bool has_piece(uint32_t index) override;
+        void refresh_download_interest();
+    private:
+        void request_blocks();
+        void cancel_block_requests();
     private:
         std::shared_ptr<PeerConnection> peer_connection;
 
@@ -60,8 +69,13 @@ namespace peer {
         DataChannel download;
 
         std::vector<bool> piece_present;
+        std::shared_ptr<ftorrent::piece_picker::PiecePicker> piece_picker;
+
         BlockRecievedHandler block_recieved;
         BlockRequestHandler block_requested;
+
+        static constexpr uint32_t block_pipeline_size = 10;
+        uint32_t blocks_in_queue = 0;
     };
 
 };
