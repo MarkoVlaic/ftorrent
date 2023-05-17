@@ -8,6 +8,7 @@
 #include <iostream>
 #include <memory>
 #include <cstdint>
+#include <vector>
 
 #include "service/metainfo.h"
 #include "service/torrent.h"
@@ -16,6 +17,7 @@
 #include "service/types.h"
 #include "service/peer/peer_handler.h"
 #include "service/peer/peer.h"
+#include "service/piece.h"
 
 namespace ftorrent {
     class Manager {
@@ -24,15 +26,18 @@ namespace ftorrent {
 
         void run();
     private:
-        void initTracker();
-        types::PeerId generatePeerId();
+        void init_tracker();
+        types::PeerId generate_peer_id();
+        std::vector<std::shared_ptr<Piece>> generate_pieces();
+
         void handle_block_request(std::shared_ptr<peer::Peer>, uint32_t, uint32_t, uint32_t);
     private:
         boost::asio::io_context io_context;
         boost::thread_group thread_pool;
 
         Metainfo metainfo;
-        torrent::Torrent active_torrent;
+        std::vector<std::shared_ptr<Piece>> pieces;
+        Torrent active_torrent;
 
         uint32_t num_threads;
 

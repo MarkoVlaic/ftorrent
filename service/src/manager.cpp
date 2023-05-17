@@ -14,14 +14,15 @@
 namespace ftorrent {
     Manager::Manager(const std::string& metainfo_path, const std::string& outfile_path, uint32_t nthreads):
         metainfo{metainfo_path},
+        pieces{generate_pieces()},
         active_torrent{
-            metainfo, outfile_path, io_context,
+            metainfo, outfile_path, io_context, pieces,
             [this](uint32_t i){ peer_handler.piece_complete(i); }
         },
-        num_threads{nthreads}, peer_id{generatePeerId()},
+        num_threads{nthreads}, peer_id{generate_peer_id()},
         port{ 6881 }, /* TODO: assign available port */
         peer_handler{
-            io_context, metainfo.info_hash, peer_id, metainfo.pieces.size(), port,
+            io_context, metainfo.info_hash, peer_id, pieces, port,
             [this](uint64_t i, uint64_t o, std::vector<uint8_t>& d){
                 active_torrent.write_block(i, o, d);
             },
@@ -29,7 +30,7 @@ namespace ftorrent {
         }
     {
         std::cerr << "piece size " << metainfo.piece_length << "\n";
-        initTracker();
+        init_tracker();
     }
 
     void Manager::run() {
@@ -55,7 +56,7 @@ namespace ftorrent {
         thread_pool.join_all();
     }
 
-    types::PeerId Manager::generatePeerId() {
+    types::PeerId Manager::generate_peer_id() {
         types::PeerId result;
         char start[] = "ftorrent";
 
@@ -71,7 +72,7 @@ namespace ftorrent {
         return result;
     }
 
-    void Manager::initTracker() {
+    void Manager::init_tracker() {
         std::string announce_url = metainfo.announce;
         int proto_separator = announce_url.find("://");
         std::string protocol = announce_url.substr(0, proto_separator);
@@ -98,6 +99,25 @@ namespace ftorrent {
         std::string error = protocol;
         error += " protocol is not supported";
         throw ftorrent::Exception{error};
+    }
+
+    std::vector<std::shared_ptr<Piece>> Manager::generate_pieces() {
+        std::vector<std::shared_ptr<Piece>> pieces;
+        pieces.reserve(metainfo.pieces.size());
+        uint32_t index=0;
+        for(auto it=metainfo.pieces.begin();it!=metainfo.pieces.end();it++) {
+            uint32_t  s;
+            if(std::distance(it, metainfo.pieces.end()) == 1) {
+                s = metainfo.length - (metainfo.pieces.size() - 1) * metainfo.piece_length;
+            } else {
+                s = metainfo.piece_length;
+            }
+
+            pieces.push_back(std::make_shared<Piece>(index, *it, s));
+            index++;
+        }
+
+        return pieces;
     }
 
     void Manager::handle_block_request(std::shared_ptr<peer::Peer> peer, uint32_t piece_index, uint32_t block_offset, uint32_t length) {

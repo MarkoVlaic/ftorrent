@@ -8,16 +8,19 @@
 #include "service/peer/peer_handler.h"
 #include "service/peer/handler_types.h"
 #include "service/types.h"
+#include "service/piece_picker/rarest_first_picker.h"
 
 namespace ftorrent {
 namespace peer {
     using boost::asio::ip::tcp;
     PeerHandler::PeerHandler(
         boost::asio::io_context& ioc, types::Hash h, types::PeerId pid,
-        uint64_t np, uint16_t lp,
+        std::vector<std::shared_ptr<Piece>> pieces, uint16_t lp,
         BlockRecievedHandler blk_rcvd, BlockRequestHandler blk_req
     ):
-        io_context{ioc}, info_hash{h}, peer_id{pid}, num_pieces{np}, listen_port{lp},
+        io_context{ioc}, info_hash{h}, peer_id{pid},
+        num_pieces{pieces.size()}, piece_picker{std::make_shared<piece_picker::RarestFirstPicker>(pieces)},
+        listen_port{lp},
         acceptor{io_context, tcp::endpoint(tcp::v4(), listen_port)}, block_recieved{blk_rcvd}, block_requested{blk_req}
     {
         // TODO: implement accept connection request
@@ -74,7 +77,7 @@ namespace peer {
             }
         }
 
-        auto peer = std::make_shared<Peer>(io_context, endpoints, info_hash, peer_id, num_pieces, std::bind(&PeerHandler::remove_peer, this, std::placeholders::_1), block_recieved, block_requested);
+        auto peer = std::make_shared<Peer>(io_context, endpoints, info_hash, peer_id, num_pieces, piece_picker, std::bind(&PeerHandler::remove_peer, this, std::placeholders::_1), block_recieved, block_requested);
         peers.push_back(peer);
     }
 
@@ -97,6 +100,7 @@ namespace peer {
     void PeerHandler::piece_complete(uint32_t piece_index) {
         for(auto peer : peers) {
             peer->send_have(piece_index);
+            peer->refresh_download_interest();
         }
     }
 }; // peer

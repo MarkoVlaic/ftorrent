@@ -8,8 +8,6 @@
 #include "service/serialization.h"
 #include "service/types.h"
 #include "service/util.h"
-#include "service/events/events.h"
-#include "service/events/torrent_events.h"
 
 namespace boost {
     namespace endian {
@@ -41,7 +39,6 @@ namespace serialization {
         deserialize(static_cast<tracker::udp::Response&>(res), deserializer);
 
         deserialize(res.connection_id, deserializer);
-        std::cout << std::hex << "raw conn id " << res.connection_id << "\n";
         res.connection_id = boost::endian::big_to_native(res.connection_id);
     }
 
@@ -83,14 +80,12 @@ namespace serialization {
 namespace tracker {
     namespace udp {
         void Request::serialize(ftorrent::serialization::Serializer& serializer) {
-            std::cout << "serialize base\n";
             ftorrent::serialization::serialize(boost::endian::native_to_big(connection_id), serializer);
             ftorrent::serialization::serialize(boost::endian::native_to_big(action), serializer);
             ftorrent::serialization::serialize(boost::endian::native_to_big(transaction_id), serializer);
         }
 
         void AnnounceRequest::serialize(ftorrent::serialization::Serializer& serializer) {
-            std::cout << "serialize announce\n";
             Request::serialize(serializer);
             ftorrent::serialization::serialize(info_hash, serializer);
             ftorrent::serialization::serialize(peer_id, serializer);
@@ -111,14 +106,12 @@ namespace tracker {
         }
 
         void RetryTimer::stop() {
-            std::cout << "stop\n";
             timer.cancel();
             stopped = true;
             retransmission_index = 0;
         }
 
         void RetryTimer::waitHandler(const boost::system::error_code& e, std::function<void()> handler) {
-            std::cout << "timer\n";
             if(e) {
                 if(e == boost::asio::error::operation_aborted) {
                     return;
@@ -159,8 +152,6 @@ namespace tracker {
     }
 
     void UdpTracker::run() {
-        std::cout << "run\n";
-
         auto conn_req = makeConnectRequest();
         req_queue.insert(conn_req);
 
@@ -178,16 +169,9 @@ namespace tracker {
         serialization::serialize(cur_req, serializer);
         req_buf = serializer.data();
 
-        std::cout << "req bytes: " << std::hex;
-        for(uint8_t byte : req_buf) {
-            std::cout << (int) byte << " ";
-        }
-        std::cout << std::endl;
-
         socket.async_send_to(
             boost::asio::buffer(req_buf), server_endpoint,
             boost::asio::bind_executor(strand, [this](boost::system::error_code, long unsigned int){
-            std::cout << "req sent" << std::endl;
 
             if(!this->req_sent) {
                 this->getResponse();
@@ -227,7 +211,6 @@ namespace tracker {
         boost::asio::ip::udp::endpoint sender_endpoint;
 
         socket.async_receive_from(boost::asio::buffer(res_buf), sender_endpoint, [this](boost::system::error_code, long unsigned int) {
-            std::cout << "response" << std::endl;
             retry_timer.stop();
             this->handleResponse();
 
@@ -241,13 +224,10 @@ namespace tracker {
     }
 
     void UdpTracker::handleResponse() {
-        std::cout << "handler\n";
         serialization::Deserializer deserializer{res_buf};
         udp::Response response_header;
         deserialize(response_header, deserializer);
         deserializer.reset();
-
-        std::cout << "Response header " << response_header.action << " " << response_header.transaction_id << "\n";
 
         if(cur_req->transaction_id != response_header.transaction_id) {
             std::cout << "tid mismatch\n";
@@ -260,14 +240,12 @@ namespace tracker {
                 return;
             }
 
-            std::cout << "deser\n";
             req_queue.remove(cur_req);
 
             udp::ConnectionResponse response;
             deserialize(response, deserializer);
 
             connection_id = response.connection_id;
-            std::cout << "conn id " << std::hex << connection_id << "\n";
 
             scheduleRequest<udp::ConnectRequest>(
                 connect_timer,
@@ -291,7 +269,7 @@ namespace tracker {
 
             announce_interval = response.interval;
 
-            std::cout << "interval " << response.interval << " leechers " << response.leechers << "\n";
+            std::cerr << "peers:\n";
 
             for(auto pd : response.peers) {
                 std::cout << "peer: " << pd.ip << " " << pd.port << std::endl;

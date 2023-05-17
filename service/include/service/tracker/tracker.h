@@ -10,13 +10,12 @@
 #include "../util.h"
 #include "../types.h"
 #include "../serialization.h"
-#include "../events/events.h"
 
 namespace ftorrent {
 namespace tracker {
     using PeerHandler = std::function<void(std::vector<types::PeerDescriptor>)>;
 
-    class Tracker : public std::enable_shared_from_this<Tracker>, public ftorrent::events::Subscriber {
+    class Tracker : public std::enable_shared_from_this<Tracker>{
     public:
         Tracker(const ftorrent::types::Hash& h, const ftorrent::types::PeerId& pid, uint16_t p, PeerHandler ph):
         info_hash{h}, peer_id{pid}, listen_port{p}, on_peers{ph} {
@@ -29,12 +28,7 @@ namespace tracker {
         virtual ~Tracker() = default;
 
         void start() {
-            ftorrent::events::Dispatcher::get()->subscribe(shared_from_this(), ftorrent::events::EventGroup::torrent());
             run();
-        }
-
-        void processEvent(std::shared_ptr<ftorrent::events::Event> e) {
-
         }
 
     protected:
