@@ -16,6 +16,6 @@
 #include "service/util.h"
 
 int main(int argc, char* argv[]) {
-    ftorrent::Manager manager{"./test-file.torrent", "demo-out.png", 16};
+    ftorrent::Manager manager{argv[1], "demo-out.png", 16};
     manager.run();
 }
