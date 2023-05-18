@@ -22,6 +22,7 @@ namespace piece_picker {
         void increment_piece_availability(uint32_t index);
     private:
         std::vector<std::vector<std::shared_ptr<Piece>>> availability_buckets;
+        bool dirty = true;
     };
 
 };

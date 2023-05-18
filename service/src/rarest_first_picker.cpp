@@ -18,7 +18,7 @@ namespace piece_picker {
 
     void RarestFirstPicker::on_have(uint32_t index) {
         increment_piece_availability(index);
-        sort_pieces();
+        dirty = true;
     }
 
     void RarestFirstPicker::on_bitfield(std::vector<bool> bitfield) {
@@ -28,7 +28,7 @@ namespace piece_picker {
             }
         }
 
-        sort_pieces();
+        dirty = true;
     }
 
     void RarestFirstPicker::increment_piece_availability(uint32_t index) {
@@ -39,6 +39,10 @@ namespace piece_picker {
     }
 
     std::shared_ptr<Piece> RarestFirstPicker::next(std::shared_ptr<peer::AbstractPeer> p, uint32_t attempt) {
+        if(dirty) {
+            sort_pieces();
+        }
+
         for(auto bucket : availability_buckets) {
             for(auto piece : bucket) {
                 if(piece->get_availability() == 0) {
@@ -75,6 +79,8 @@ namespace piece_picker {
             bucket.push_back(*it);
         }
         availability_buckets.push_back(bucket);
+
+        dirty = false;
     }
 };
 };
