@@ -5,6 +5,8 @@
 #include <boost/thread/thread.hpp>
 #include <memory>
 #include <vector>
+#include <unistd.h>
+#include <sys/types.h>
 
 #include "service/manager.h"
 #include "service/peer/peer_connection.h"
@@ -16,6 +18,8 @@
 #include "service/util.h"
 
 int main(int argc, char* argv[]) {
+    pid_t pid = getpid();
+    std::cout << "started pid: " << pid << std::endl;
     ftorrent::Manager manager{argv[1], "demo-out.png", 16};
     manager.run();
 }

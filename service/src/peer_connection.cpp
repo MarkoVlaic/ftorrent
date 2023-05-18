@@ -99,8 +99,11 @@ namespace peer {
                 }
 
                 std::cerr << "before erase\n";
-                auto it = std::find(send_buffers.begin(), send_buffers.end(), buf);
-                self->send_buffers.erase(it);
+                {
+                    std::lock_guard<std::mutex> lock(self->send_mutex);
+                    auto it = std::find(self->send_buffers.begin(), self->send_buffers.end(), buf);
+                    self->send_buffers.erase(it);
+                }
                 self->keep_alive_timer.reset();
                 handler();
                 //std::cout << "fire handler\n";

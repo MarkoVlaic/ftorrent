@@ -59,7 +59,11 @@ namespace ftorrent {
                 std::cerr << "buf after read\n";
                 //util::print_buffer(*buf);
                 handler(buf);
-                // read_buffers.erase(read_buffers.begin() + buffer_index);
+                {
+                    std::lock_guard<std::mutex> lock(this->read_mutex);
+                    auto it = std::find(this->read_buffers.begin(), this->read_buffers.end(), buf);
+                    this->read_buffers.erase(it);
+                }
             })
         );
     }

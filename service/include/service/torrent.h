@@ -10,6 +10,7 @@
 #include <functional>
 #include <unordered_map>
 #include <mutex>
+#include <atomic>
 
 #include "service/metainfo.h"
 #include "service/piece.h"
@@ -35,7 +36,7 @@ namespace ftorrent {
 
         uint64_t downloaded = 0;
         uint64_t uploaded = 0;
-        uint32_t validated = 0;
+        std::atomic<uint32_t> validated = 0;
 
         boost::asio::random_access_file out_file;
         boost::asio::strand<boost::asio::io_context::executor_type> strand;
