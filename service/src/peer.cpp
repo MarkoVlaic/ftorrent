@@ -151,7 +151,7 @@ namespace peer {
             }
         }
 
-        if(!interesting) {
+        if(!interesting && download.is_interested()) {
             download.set_interested(false);
             peer_connection->send(std::make_shared<messages::NotInterested>());
         }
