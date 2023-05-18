@@ -1,5 +1,6 @@
 import os
 import subprocess
+import sys
 
 def run_cmd(cmd):
 	subprocess.run(cmd, shell=True)
@@ -31,7 +32,13 @@ run_cmd('hcp opentracker/opentracker.debug tracker:/opentracker')
 run_cmd('himage tracker ./opentracker &')
 print('tracker setup done')
 
-torrent_file_path = './ftorrent/test/test-file.torrent'
+torrent_file_name = 'test-file.torrent'
+test_file_name = 'test-file.png'
+if len(sys.argv) > 1:
+	torrent_file_name = sys.argv[1]
+	test_file_name = sys.argv[2]
+torrent_file_path = f'./ftorrent/test/{torrent_file_name}'
+test_file_path = f'./ftorrent/test/{test_file_name}'
 
 # setup client
 print('client setup start')
@@ -55,13 +62,13 @@ num_peers = 6
 peers = [f'peer{i + 1}' for i in range(num_peers)]
 for peer in peers:
 	print(f'{peer} setup start')
-	run_cmd(f'hcp ./ftorrent/test/test-file.torrent {peer}:/')
+	run_cmd(f'hcp {torrent_file_path} {peer}:/{torrent_file_name}')
 	run_cmd(f'hcp ./ftorrent/test/transmission-settings.json {peer}:/var/lib/transmission-daemon/info/settings.json')
 	run_cmd(f'himage {peer} service transmission-daemon start')
 print('peer setup done')
 
 print('seed setup start')
 seed = peers[0]
-run_cmd(f'hcp ./ftorrent/test/test-file.png {seed}:/var/lib/transmission-daemon/downloads')
+run_cmd(f'hcp {test_file_path} {seed}:/var/lib/transmission-daemon/downloads')
 run_cmd(f'himage {seed} transmission-remote 0.0.0.0:9091 -t 1 -v')
 print('seed setup done')

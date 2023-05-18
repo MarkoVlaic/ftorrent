@@ -1,9 +1,16 @@
 from random import randint
-with open('/tftpboot/largetext.txt', 'w') as f:
-    for i in range(1000):
-        s = ''
-        nc = randint(5, 10)
-        for _ in range(nc):
-            s = s + chr(ord('a') + randint(0, 25))
-        f.write(s + '\n')
+import sys
+import os
+
+if len(sys.argv) != 3:
+	print(f'usage: {sys.argv[0]} filename num_bytes')
+	sys.exit(1)
+
+filename = sys.argv[1]
+size = int(sys.argv[2])
+
+block_size = 1024;
+with open(filename, 'wb') as f:
+	for i in range(size//block_size):
+		f.write(os.urandom(block_size))
 

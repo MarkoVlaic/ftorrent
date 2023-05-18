@@ -22,6 +22,7 @@ node n0 {
     iconcoords {96 72}
     labelcoords {96 108}
     interface-peer {eth0 n4}
+    docker-image imunes-ubuntu
 }
 
 node n1 {
@@ -48,6 +49,7 @@ node n1 {
     iconcoords {168 480}
     labelcoords {168 511}
     interface-peer {eth0 n6}
+    docker-image imunes-ubuntu
 }
 
 node n2 {

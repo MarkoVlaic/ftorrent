@@ -6,3 +6,6 @@ build
 .cproject
 .project
 .settings
+*.png
+*.bin
+*.torrent
