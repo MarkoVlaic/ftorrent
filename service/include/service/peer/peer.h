@@ -62,6 +62,14 @@ namespace peer {
             uint64_t num_pieces, std::shared_ptr<ftorrent::piece_picker::PiecePicker> pc_pckr,
             ConnectionClosedHandler connection_closed, BlockRecievedHandler blk_rcvd, BlockRequestHandler blk_req
         );
+
+        Peer(
+            boost::asio::io_context& ioc, boost::asio::ip::tcp::socket sock,
+            const ftorrent::types::Hash& ih, const ftorrent::types::PeerId& pid,
+            uint64_t num_pieces, std::shared_ptr<ftorrent::piece_picker::PiecePicker> pc_pckr,
+            ConnectionClosedHandler connection_closed, BlockRecievedHandler blk_rcvd, BlockRequestHandler blk_req
+        );
+
         ~Peer() override = default;
 
         void message_handler(std::shared_ptr<messages::Message>) override;

@@ -27,6 +27,8 @@ namespace peer {
         void piece_complete(uint32_t piece_index);
     private:
         void remove_peer(std::shared_ptr<Peer>);
+        void start_accept_peer();
+        void accept_peer(const boost::system::error_code&);
     private:
         boost::asio::io_context& io_context;
         types::Hash info_hash;
@@ -37,6 +39,7 @@ namespace peer {
 
         uint16_t listen_port;
         tcp::acceptor acceptor;
+        tcp::socket incoming_socket;
         std::vector<tcp::endpoint> local_endpoints;
         std::vector<std::shared_ptr<Peer>> peers;
 

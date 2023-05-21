@@ -13,23 +13,44 @@
 namespace ftorrent {
 namespace peer {
     PeerConnection::PeerConnection(
-        boost::asio::io_context& ioc, const tcp::resolver::results_type& eps, const ftorrent::types::Hash& ih,
+        boost::asio::io_context& ioc, const tcp::resolver::results_type& endpoints, const ftorrent::types::Hash& ih,
         const ftorrent::types::PeerId& pid, std::function<void(std::shared_ptr<messages::Message>)> msg_hdlr,
         std::function<void()> conn_closed_hdlr
     ):
         io_context{ioc}, send_strand{boost::asio::make_strand(ioc)},
-        socket{ioc}, endpoints{eps},
+        socket{ioc},
         info_hash{ih}, peer_id{pid},
         message_handler{msg_hdlr}, connection_closed_handler{conn_closed_hdlr},
         keep_alive_timer{*this, 2 * 60}
     {
         std::cerr << "make connect\n";
         boost::asio::async_connect(socket, endpoints, [this](const boost::system::error_code& e, tcp::endpoint) {
+            if(e) {
+                std::cerr << "connect failed\n";
+                connection_closed_handler();
+            }
             std::cerr << "connected\n";
             this->connected(e);
         });
 
         keep_alive_timer.reset();
+    }
+
+    PeerConnection::PeerConnection(
+        boost::asio::io_context& ioc, boost::asio::ip::tcp::socket sock,
+        const ftorrent::types::Hash& ih, const ftorrent::types::PeerId& pid,
+        std::function<void(std::shared_ptr<messages::Message>)> msg_hdlr,
+        std::function<void()> conn_closed_hdlr
+    ):
+        io_context{ioc}, send_strand{boost::asio::make_strand(ioc)},
+        socket{std::move(sock)},
+        info_hash{ih}, peer_id{pid},
+        message_handler{msg_hdlr}, connection_closed_handler{conn_closed_hdlr},
+        keep_alive_timer{*this, 2 * 60}
+    {
+        boost::system::error_code ec;
+        ec.assign(boost::system::errc::success, boost::system::system_category());
+        connected(ec);
     }
 
 

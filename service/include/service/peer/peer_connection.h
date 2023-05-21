@@ -35,6 +35,13 @@ namespace peer {
             std::function<void()> conn_closed_hdlr
         );
 
+        PeerConnection(
+            boost::asio::io_context& ioc, boost::asio::ip::tcp::socket sock,
+            const ftorrent::types::Hash& ih, const ftorrent::types::PeerId& pid,
+            std::function<void(std::shared_ptr<messages::Message>)> msg_hdlr,
+            std::function<void()> conn_closed_hdlr
+        );
+
         ~PeerConnection() {
             std::cerr << "DESTRUCTOR!\n";
         }
@@ -73,7 +80,6 @@ namespace peer {
         boost::asio::io_context& io_context;
         boost::asio::strand<boost::asio::io_context::executor_type> send_strand;
         tcp::socket socket;
-        const tcp::resolver::results_type& endpoints;
 
         ftorrent::types::Hash info_hash;
         ftorrent::types::PeerId peer_id;

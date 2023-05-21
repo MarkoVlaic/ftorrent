@@ -28,6 +28,25 @@ namespace peer {
         peer_connection->send(bitfield_msg);
     }
 
+    Peer::Peer(
+        boost::asio::io_context& ioc, tcp::socket sock,
+        const ftorrent::types::Hash& ih, const ftorrent::types::PeerId& pid,
+        uint64_t num_pieces, std::shared_ptr<ftorrent::piece_picker::PiecePicker> pc_pckr,
+        ConnectionClosedHandler connection_closed, BlockRecievedHandler blk_rcvd, BlockRequestHandler blk_req
+    ):
+        peer_connection{std::make_shared<PeerConnection>(
+            ioc, std::move(sock), ih, pid,
+            std::bind(&Peer::message_handler, this, std::placeholders::_1),
+            [connection_closed, this]() { connection_closed(shared_from_this()); }
+        )},
+        piece_present(num_pieces, false), piece_picker{pc_pckr},
+        block_recieved{blk_rcvd}, block_requested{blk_req}
+    {
+        std::cerr << "init peer conn ptr " << peer_connection << "\n";
+        auto bitfield_msg = std::make_shared<messages::BitField>(piece_picker->get_have_bitfield());
+        peer_connection->send(bitfield_msg);
+    }
+
     void Peer::message_handler(std::shared_ptr<messages::Message> msg_ptr) {
         std::cerr << "got message id: " << (int) msg_ptr->id << "\n";
 

@@ -21,7 +21,7 @@ namespace peer {
         io_context{ioc}, info_hash{h}, peer_id{pid},
         num_pieces{pieces.size()}, piece_picker{pp},
         choker{std::move(pchoker)}, listen_port{lp},
-        acceptor{io_context, tcp::endpoint(tcp::v4(), listen_port)}, block_recieved{blk_rcvd}, block_requested{blk_req}
+        acceptor{io_context, tcp::endpoint(tcp::v4(), listen_port)}, incoming_socket{ioc}, block_recieved{blk_rcvd}, block_requested{blk_req}
     {
         // TODO: implement accept connection request
         struct ifaddrs* ifaddr;
@@ -81,6 +81,29 @@ namespace peer {
 
         auto peer = std::make_shared<Peer>(io_context, endpoints, info_hash, peer_id, num_pieces, piece_picker, std::bind(&PeerHandler::remove_peer, this, std::placeholders::_1), block_recieved, block_requested);
         peers.push_back(peer);
+    }
+
+    void PeerHandler::start_accept_peer() {
+        acceptor.async_accept(incoming_socket, [this](auto e){
+            accept_peer(e);
+        });
+    }
+
+    void PeerHandler::accept_peer(const boost::system::error_code& e) {
+        if(e) {
+            std::cerr << "cannot accept peer \n";
+            return;
+        }
+
+        std::cerr << "peer accepted " << incoming_socket.local_endpoint().address().to_string() << "\n";
+
+        auto peer = std::make_shared<Peer>(io_context, std::move(incoming_socket), info_hash, peer_id, num_pieces, piece_picker, std::bind(&PeerHandler::remove_peer, this, std::placeholders::_1), block_recieved, block_requested);
+        peers.push_back(peer);
+        incoming_socket = tcp::socket{io_context};
+
+        acceptor.async_accept(incoming_socket, [this](auto e){
+            accept_peer(e);
+        });
     }
 
     void PeerHandler::remove_peer(std::shared_ptr<Peer> peer) {
