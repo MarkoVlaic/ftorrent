@@ -110,7 +110,7 @@ namespace peer {
         boost::asio::async_write(
             socket,
             boost::asio::buffer(*buf),
-            boost::asio::bind_executor(send_strand, [&, handler, self](const boost::system::error_code& err, long unsigned int) {
+            boost::asio::bind_executor(send_strand, [&, handler, self, buf](const boost::system::error_code& err, long unsigned int) {
                 std::cerr << "in send handler\n";
                 if(err) {
                     // TODO: rethink this decision
