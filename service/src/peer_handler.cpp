@@ -58,6 +58,7 @@ namespace peer {
         }
 
         choker->start();
+        start_accept_peer();
     }
 
     void PeerHandler::add_peer(types::PeerDescriptor descriptor) {
@@ -81,6 +82,7 @@ namespace peer {
 
         auto peer = std::make_shared<Peer>(io_context, endpoints, info_hash, peer_id, num_pieces, piece_picker, std::bind(&PeerHandler::remove_peer, this, std::placeholders::_1), block_recieved, block_requested);
         peers.push_back(peer);
+        choker->add_peer(peer);
     }
 
     void PeerHandler::start_accept_peer() {
@@ -99,6 +101,7 @@ namespace peer {
 
         auto peer = std::make_shared<Peer>(io_context, std::move(incoming_socket), info_hash, peer_id, num_pieces, piece_picker, std::bind(&PeerHandler::remove_peer, this, std::placeholders::_1), block_recieved, block_requested);
         peers.push_back(peer);
+        choker->add_peer(peer);
         incoming_socket = tcp::socket{io_context};
 
         acceptor.async_accept(incoming_socket, [this](auto e){
