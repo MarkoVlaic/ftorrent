@@ -8,7 +8,6 @@
 #include "service/peer/peer_handler.h"
 #include "service/peer/handler_types.h"
 #include "service/types.h"
-#include "service/piece_picker/rarest_first_picker.h"
 
 namespace ftorrent {
 namespace peer {
@@ -16,11 +15,12 @@ namespace peer {
     PeerHandler::PeerHandler(
         boost::asio::io_context& ioc, types::Hash h, types::PeerId pid,
         std::vector<std::shared_ptr<Piece>> pieces, uint16_t lp,
+        std::shared_ptr<piece_picker::PiecePicker> pp, std::unique_ptr<choking::Choker> pchoker,
         BlockRecievedHandler blk_rcvd, BlockRequestHandler blk_req
     ):
         io_context{ioc}, info_hash{h}, peer_id{pid},
-        num_pieces{pieces.size()}, piece_picker{std::make_shared<piece_picker::RarestFirstPicker>(pieces)},
-        listen_port{lp},
+        num_pieces{pieces.size()}, piece_picker{pp},
+        choker{std::move(pchoker)}, listen_port{lp},
         acceptor{io_context, tcp::endpoint(tcp::v4(), listen_port)}, block_recieved{blk_rcvd}, block_requested{blk_req}
     {
         // TODO: implement accept connection request
@@ -56,6 +56,8 @@ namespace peer {
         for(auto ep : local_endpoints) {
             std::cerr << ep << "\n";
         }
+
+        choker->start();
     }
 
     void PeerHandler::add_peer(types::PeerDescriptor descriptor) {
@@ -94,6 +96,7 @@ namespace peer {
             return;
         }
         std::cout << "remove peer\n";
+        peer->close();
         peers.erase(it);
     }
 

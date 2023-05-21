@@ -9,6 +9,7 @@
 #include "../types.h"
 #include "../piece.h"
 #include "../piece_picker/piece_picker.h"
+#include "../choking/choker.h"
 
 namespace ftorrent {
 namespace peer {
@@ -18,6 +19,7 @@ namespace peer {
         PeerHandler(
             boost::asio::io_context& ioc, types::Hash h, types::PeerId pid,
             std::vector<std::shared_ptr<Piece>>, uint16_t lp,
+            std::shared_ptr<piece_picker::PiecePicker> pp, std::unique_ptr<choking::Choker> pchoker,
             BlockRecievedHandler blk_rcvd,  BlockRequestHandler blk_req
         );
 
@@ -31,6 +33,7 @@ namespace peer {
         types::PeerId peer_id;
         uint64_t num_pieces;
         std::shared_ptr<piece_picker::PiecePicker> piece_picker;
+        std::unique_ptr<choking::Choker> choker;
 
         uint16_t listen_port;
         tcp::acceptor acceptor;

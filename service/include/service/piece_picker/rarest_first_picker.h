@@ -13,6 +13,7 @@ namespace piece_picker {
     class RarestFirstPicker : public PiecePicker {
     public:
         RarestFirstPicker(const std::vector<std::shared_ptr<Piece>>& pcs);
+        ~RarestFirstPicker() override = default;
 
         void on_have(uint32_t index) override;
         void on_bitfield(std::vector<bool> bitfield) override;

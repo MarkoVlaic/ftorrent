@@ -12,6 +12,7 @@
 #include "../types.h"
 #include "./handler_types.h"
 #include "../piece_picker/piece_picker.h"
+#include "../rate_measure.h"
 
 namespace ftorrent {
 namespace peer {
@@ -38,9 +39,19 @@ namespace peer {
             return interested;
         }
 
+        void data_transferred(uint64_t amount) {
+            rate_measure.update(amount);
+        }
+
+        double get_data_rate() const {
+            return rate_measure.get();
+        }
+
     private:
         bool choked = true;
         bool interested = false;
+        // TODO get this from config
+        RateMeasure rate_measure{20.0};
     };
 
     class Peer : public AbstractPeer,  public std::enable_shared_from_this<Peer> {
@@ -58,6 +69,13 @@ namespace peer {
         void send_have(uint64_t index) override;
 
         bool has_piece(uint32_t index) override;
+
+        double get_download_rate() const override;
+        bool get_upload_interested() const override;
+        void choke_upload() override;
+        void unchoke_upload() override;
+
+        void close() override;
         void refresh_download_interest();
     private:
         void request_blocks();

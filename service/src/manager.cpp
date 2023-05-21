@@ -8,7 +8,8 @@
 #include "service/manager.h"
 #include "service/util.h"
 #include "service/tracker/udp_tracker.h"
-
+#include "service/piece_picker/rarest_first_picker.h"
+#include "service/choking/leech_choker.h"
 #include "service/peer/peer.h" // TODO: remove
 
 namespace ftorrent {
@@ -23,6 +24,8 @@ namespace ftorrent {
         port{ 6881 }, /* TODO: assign available port */
         peer_handler{
             io_context, metainfo.info_hash, peer_id, pieces, port,
+            std::make_shared<piece_picker::RarestFirstPicker>(pieces),
+            std::make_unique<choking::LeechChoker>(io_context),
             [this](uint64_t i, uint64_t o, std::vector<uint8_t>& d){
                 active_torrent.write_block(i, o, d);
             },

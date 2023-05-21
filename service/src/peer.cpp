@@ -108,6 +108,8 @@ namespace peer {
 
                 block_recieved(piece_msg->index, piece_msg->begin, piece_msg->block);
                 request_blocks();
+
+                download.data_transferred(block->size);
                 break;
             }
 
@@ -126,6 +128,7 @@ namespace peer {
         std::cerr << "before send ptr is " << peer_connection << "\n";
         peer_connection->send(msg, [](){ std::cerr << "block sent\n"; });
         std::cerr << "after send\n";
+        upload.data_transferred(data->size());
     }
 
     void Peer::send_have(uint64_t index) {
@@ -183,6 +186,37 @@ namespace peer {
 
             attempt++;
         }
+    }
+
+    double Peer::get_download_rate() const {
+        return download.get_data_rate();
+    }
+
+    bool Peer::get_upload_interested() const {
+        return upload.is_interested();
+    }
+
+    void Peer::choke_upload() {
+        if(upload.is_choked())
+            return;
+
+        upload.choke();
+        auto msg = std::make_shared<messages::Choke>();
+        peer_connection->send(msg);
+    }
+
+    void Peer::unchoke_upload() {
+        if(!upload.is_choked())
+            return;
+
+        upload.unchoke();
+        auto msg = std::make_shared<messages::Unchoke>();
+        peer_connection->send(msg);
+    }
+
+    void Peer::close() {
+        // TODO: close io operations and socket
+        std::cerr << "peer should close now\n";
     }
 };
 };

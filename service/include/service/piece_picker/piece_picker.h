@@ -19,6 +19,7 @@ namespace piece_picker {
                 }
             }
         }
+        virtual ~PiecePicker() = default;
 
         virtual void on_have(uint32_t index) = 0;
         virtual void on_bitfield(std::vector<bool> bitfield) = 0;
