@@ -46,11 +46,12 @@ namespace peer {
             std::cerr << "DESTRUCTOR!\n";
         }
 
+        void start();
+
         void send(std::shared_ptr<messages::Message> msg);
         void send(std::shared_ptr<messages::Message> msg, std::function<void()> handler);
 
     private:
-        void connected(const boost::system::error_code& error);
 
         void recieve(uint32_t bytes, std::function<void()> handler);
 

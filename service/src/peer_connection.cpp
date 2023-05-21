@@ -30,7 +30,7 @@ namespace peer {
                 connection_closed_handler();
             }
             std::cerr << "connected\n";
-            this->connected(e);
+            this->start();
         });
 
         keep_alive_timer.reset();
@@ -47,22 +47,10 @@ namespace peer {
         info_hash{ih}, peer_id{pid},
         message_handler{msg_hdlr}, connection_closed_handler{conn_closed_hdlr},
         keep_alive_timer{*this, 2 * 60}
-    {
-        boost::system::error_code ec;
-        ec.assign(boost::system::errc::success, boost::system::system_category());
-        connected(ec);
-    }
+    {}
 
 
-    void PeerConnection::connected(const boost::system::error_code& error) {
-        if(error) {
-            std::cerr << "connect on " << socket.remote_endpoint() << "failed\n";
-            //throw HandshakeError{"Connect failed"};
-            connection_closed_handler();
-            return;
-        }
-
-        // start the handshake
+    void PeerConnection::start() {
         std::cerr << "connected handler: " << socket.remote_endpoint() << "\n";
 
         auto handshake = std::make_shared<messages::Handshake>("BitTorrent protocol", info_hash, peer_id);

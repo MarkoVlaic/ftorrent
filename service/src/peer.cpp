@@ -47,6 +47,10 @@ namespace peer {
         peer_connection->send(bitfield_msg);
     }
 
+    void Peer::start() {
+        peer_connection->start();
+    }
+
     void Peer::message_handler(std::shared_ptr<messages::Message> msg_ptr) {
         std::cerr << "got message id: " << (int) msg_ptr->id << "\n";
 

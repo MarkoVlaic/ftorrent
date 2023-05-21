@@ -12,6 +12,7 @@ namespace peer {
     struct AbstractPeer {
         virtual ~AbstractPeer() = default;
 
+        virtual void start() = 0;
         virtual void message_handler(std::shared_ptr<messages::Message>) = 0;
         virtual void send_block(uint64_t piece_index, uint64_t block_offset, std::shared_ptr<std::vector<uint8_t>> data) = 0;
         virtual void send_have(uint64_t index) = 0;

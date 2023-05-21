@@ -72,6 +72,8 @@ namespace peer {
 
         ~Peer() override = default;
 
+        void start() override;
+
         void message_handler(std::shared_ptr<messages::Message>) override;
         void send_block(uint64_t piece_index, uint64_t block_offset, std::shared_ptr<std::vector<uint8_t>> data) override;
         void send_have(uint64_t index) override;
