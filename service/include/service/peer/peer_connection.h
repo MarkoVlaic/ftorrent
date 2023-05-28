@@ -70,6 +70,7 @@ namespace peer {
             void stop();
 
         private:
+            // TODO change to std::shared_ptr<PeerConnection> probably
             PeerConnection& connection;
             std::chrono::seconds interval; // in seconds
             boost::asio::steady_timer timer;

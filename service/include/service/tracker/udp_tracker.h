@@ -110,13 +110,13 @@ namespace udp {
         uint8_t retransmission_index = 0;
         bool stopped = true;
 
-        void waitHandler(const boost::system::error_code& e, std::function<void()> handler);
+        void wait_handler(const boost::system::error_code& e, std::function<void()> handler);
 
         void increment() {
             retransmission_index = std::min(retransmission_index + 1, 8);
         }
 
-        std::chrono::seconds getExpire() {
+        std::chrono::seconds get_expire() {
             uint32_t seconds = 15 + (1u << retransmission_index);
             return std::chrono::seconds(seconds);
         }
@@ -170,15 +170,15 @@ namespace udp {
         void run() override;
 
     private:
-        void sendRequest();
-        std::shared_ptr<udp::ConnectRequest> makeConnectRequest();
-        std::shared_ptr<udp::AnnounceRequest> makeAnnounceRequest();
+        void send_request();
+        std::shared_ptr<udp::ConnectRequest> make_connect_request();
+        std::shared_ptr<udp::AnnounceRequest> make_announce_request();
 
-        void getResponse();
-        void handleResponse();
+        void get_response();
+        void handle_response();
 
         template<typename ReqType>
-        void scheduleRequest(boost::asio::steady_timer& timer, std::function<std::shared_ptr<ReqType>()> req_factory, uint32_t seconds);
+        void schedule_request(boost::asio::steady_timer& timer, std::function<std::shared_ptr<ReqType>()> req_factory, uint32_t seconds);
 
     private:
         boost::asio::strand<boost::asio::io_context::executor_type> strand;

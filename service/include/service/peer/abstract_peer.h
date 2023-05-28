@@ -21,7 +21,7 @@ namespace peer {
         virtual bool get_upload_interested() const = 0;
         virtual void choke_upload() = 0;
         virtual void unchoke_upload() = 0;
-        virtual void close() = 0;
+        virtual void stop() = 0;
     };
 }; // peer
 }; // ftorrent

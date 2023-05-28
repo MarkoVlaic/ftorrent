@@ -47,7 +47,9 @@ namespace peer {
         info_hash{ih}, peer_id{pid},
         message_handler{msg_hdlr}, connection_closed_handler{conn_closed_hdlr},
         keep_alive_timer{*this, 2 * 60}
-    {}
+    {
+        keep_alive_timer.reset();
+    }
 
 
     void PeerConnection::start() {

@@ -101,8 +101,8 @@ namespace tracker {
 
         void RetryTimer::start(std::function<void()> handler) {
             stopped = false;
-            timer.expires_after(getExpire());
-            timer.async_wait(boost::bind(&RetryTimer::waitHandler, this, boost::asio::placeholders::error, handler));
+            timer.expires_after(get_expire());
+            timer.async_wait(boost::bind(&RetryTimer::wait_handler, this, boost::asio::placeholders::error, handler));
         }
 
         void RetryTimer::stop() {
@@ -111,7 +111,7 @@ namespace tracker {
             retransmission_index = 0;
         }
 
-        void RetryTimer::waitHandler(const boost::system::error_code& e, std::function<void()> handler) {
+        void RetryTimer::wait_handler(const boost::system::error_code& e, std::function<void()> handler) {
             if(e) {
                 if(e == boost::asio::error::operation_aborted) {
                     return;
@@ -126,8 +126,8 @@ namespace tracker {
             handler();
             increment();
 
-            timer.expires_after(getExpire());
-            timer.async_wait(boost::bind(&RetryTimer::waitHandler, this, boost::asio::placeholders::error, handler));
+            timer.expires_after(get_expire());
+            timer.async_wait(boost::bind(&RetryTimer::wait_handler, this, boost::asio::placeholders::error, handler));
         }
     }; // udp
 
@@ -152,16 +152,16 @@ namespace tracker {
     }
 
     void UdpTracker::run() {
-        auto conn_req = makeConnectRequest();
+        auto conn_req = make_connect_request();
         req_queue.insert(conn_req);
 
-        auto announce_req = makeAnnounceRequest();
+        auto announce_req = make_announce_request();
         req_queue.insert(announce_req);
 
-        sendRequest();
+        send_request();
     }
 
-    void UdpTracker::sendRequest() {
+    void UdpTracker::send_request() {
         cur_req = req_queue.top();
         cur_req->connection_id = connection_id;
 
@@ -174,19 +174,19 @@ namespace tracker {
             boost::asio::bind_executor(strand, [this](boost::system::error_code, long unsigned int){
 
             if(!this->req_sent) {
-                this->getResponse();
+                this->get_response();
                 this->req_sent = true;
-                retry_timer.start(boost::bind(&UdpTracker::sendRequest, this));
+                retry_timer.start(boost::bind(&UdpTracker::send_request, this));
             }
         }));
     }
 
-    std::shared_ptr<udp::ConnectRequest> UdpTracker::makeConnectRequest() {
+    std::shared_ptr<udp::ConnectRequest> UdpTracker::make_connect_request() {
         connection_id = MAGIC_CONNECTION_ID;
         return std::make_shared<udp::ConnectRequest>();
     }
 
-    std::shared_ptr<udp::AnnounceRequest> UdpTracker::makeAnnounceRequest() {
+    std::shared_ptr<udp::AnnounceRequest> UdpTracker::make_announce_request() {
         auto announce_req = std::make_shared<udp::AnnounceRequest>();
         announce_req->action = 1;
         announce_req->info_hash = info_hash;
@@ -203,7 +203,7 @@ namespace tracker {
         return announce_req;
     }
 
-    void UdpTracker::getResponse() {
+    void UdpTracker::get_response() {
         // res_buf = std::vector<uint8_t>{};
         res_buf.clear();
         res_buf.resize(1020); /*TODO: Change magic to something more smart*/
@@ -212,18 +212,18 @@ namespace tracker {
 
         socket.async_receive_from(boost::asio::buffer(res_buf), sender_endpoint, [this](boost::system::error_code, long unsigned int) {
             retry_timer.stop();
-            this->handleResponse();
+            this->handle_response();
 
             req_sent = false;
             cur_req = nullptr;
 
             if(!req_queue.empty()) {
-                sendRequest();
+                send_request();
             }
         });
     }
 
-    void UdpTracker::handleResponse() {
+    void UdpTracker::handle_response() {
         serialization::Deserializer deserializer{res_buf};
         udp::Response response_header;
         deserialize(response_header, deserializer);
@@ -247,9 +247,9 @@ namespace tracker {
 
             connection_id = response.connection_id;
 
-            scheduleRequest<udp::ConnectRequest>(
+            schedule_request<udp::ConnectRequest>(
                 connect_timer,
-                std::bind(&UdpTracker::makeConnectRequest, this),
+                std::bind(&UdpTracker::make_connect_request, this),
                 60
             );
 
@@ -276,9 +276,9 @@ namespace tracker {
             }
             on_peers(response.peers);
 
-            scheduleRequest<udp::AnnounceRequest>(
+            schedule_request<udp::AnnounceRequest>(
                 announce_timer,
-                std::bind(&UdpTracker::makeAnnounceRequest, this),
+                std::bind(&UdpTracker::make_announce_request, this),
                 announce_interval
             );
             return;
@@ -291,22 +291,22 @@ namespace tracker {
             std::cerr << "tracker error: " << response.message;
             req_queue.remove(cur_req);
 
-            scheduleRequest<udp::AnnounceRequest>(
+            schedule_request<udp::AnnounceRequest>(
                 announce_timer,
-                std::bind(&UdpTracker::makeAnnounceRequest, this),
+                std::bind(&UdpTracker::make_announce_request, this),
                 announce_interval
             );
 
-            scheduleRequest<udp::ConnectRequest>(
+            schedule_request<udp::ConnectRequest>(
                 connect_timer,
-                std::bind(&UdpTracker::makeConnectRequest, this),
+                std::bind(&UdpTracker::make_connect_request, this),
                 60
             );
         }
     }
 
     template<typename ReqType>
-    void UdpTracker::scheduleRequest(boost::asio::steady_timer& timer, std::function<std::shared_ptr<ReqType>()> req_factory, uint32_t seconds) {
+    void UdpTracker::schedule_request(boost::asio::steady_timer& timer, std::function<std::shared_ptr<ReqType>()> req_factory, uint32_t seconds) {
         timer.expires_after(std::chrono::seconds(seconds));
         timer.async_wait([this, req_factory](auto e){
             if(e) {
@@ -315,7 +315,7 @@ namespace tracker {
 
             this->req_queue.insert(req_factory());
             if(!this->req_sent) {
-                sendRequest();
+                send_request();
             }
         });
     }

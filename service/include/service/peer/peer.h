@@ -85,7 +85,7 @@ namespace peer {
         void choke_upload() override;
         void unchoke_upload() override;
 
-        void close() override;
+        void stop() override;
         void refresh_download_interest();
     private:
         void request_blocks();

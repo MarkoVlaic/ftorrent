@@ -124,7 +124,7 @@ namespace peer {
             return;
         }
         std::cout << "remove peer\n";
-        peer->close();
+        peer->stop();
         peers.erase(it);
     }
 

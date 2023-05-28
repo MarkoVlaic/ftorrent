@@ -237,7 +237,7 @@ namespace peer {
         peer_connection->send(msg);
     }
 
-    void Peer::close() {
+    void Peer::stop() {
         // TODO: close io operations and socket
         std::cerr << "peer should close now\n";
     }
