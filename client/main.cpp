@@ -9,13 +9,6 @@
 #include <sys/types.h>
 
 #include "service/manager.h"
-#include "service/peer/peer_connection.h"
-#include "service/peer/messages.h"
-#include "service/peer/errors.h"
-#include "service/metainfo.h"
-#include "service/types.h"
-#include "service/serialization.h"
-#include "service/util.h"
 
 int main(int argc, char* argv[]) {
     if(argc < 3) {
